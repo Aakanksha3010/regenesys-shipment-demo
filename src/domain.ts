@@ -1,4 +1,5 @@
 import { Temporal } from '@js-temporal/polyfill';
+import {normalizeSpeech,voiceEnding,uncertainSpeech} from './voice-language.js';
 
 export type Assessment = 'none'|'on_time'|'early'|'delay';
 export type Outcome = 'eta_captured'|'eta_incomplete'|'ambiguous'|'no_answer'|'voicemail'|'dropped'|'wrong_number'|'refused';
@@ -7,7 +8,7 @@ export type Actor = { id:string; name:string; role:'coordinator'|'viewer' };
 export type Shipment = {id:string;reference:string;contactId:string;origin:string;destination:string;windowStart:string;windowEnd:string;windowTz:string;scenarioId:string;status:string;retiredAt?:string;retireReason?:string};
 export type Contact = {id:string;name:string;person:string;phone:string;suppressed:boolean;reason?:string};
 export type Check = {id:string;requestId:string;shipmentId:string;status:'active'|'finished';autoRetriesUsed:number;retryPending:boolean;retryOf?:string;finishReason?:string};
-export type Attempt = {id:string;requestId:string;shipmentId:string;checkId:string;trigger:'initial'|'auto_retry'|'manual_retry';mode:'simulated';status:'in_progress'|'finished';startedAt:string;endedAt?:string;outcome?:Outcome;transcript?:string;summary?:string;clarificationAsked?:boolean;timedOut?:boolean;escalationId?:string};
+export type Attempt = {id:string;requestId:string;shipmentId:string;checkId:string;trigger:'initial'|'auto_retry'|'manual_retry';mode:'simulated';inputMethod?:'browser_voice'|'typed_demo';status:'in_progress'|'finished';startedAt:string;endedAt?:string;outcome?:Outcome;transcript?:string;summary?:string;clarificationAsked?:boolean;timedOut?:boolean;escalationId?:string};
 export type Report = {id:string;shipmentId:string;attemptId:string|null;source:'carrier'|'human_correction';raw:string;instant:string|null;date?:string;time?:string;tz?:string;capture:'captured'|'uncaptured';completeness:'complete'|'partial'|'range'|'conflict';assessment:Assessment;delay:boolean;stale:boolean;recordedAt:string;recordedBy:string;reason?:string;correctsReportId?:string};
 export type Escalation = {id:string;shipmentId:string;status:'open'|'acknowledged'|'resolved';reasons:{reason:string;attemptId:string;at:string}[];attemptIds:string[];openedAt:string;acknowledgedAt?:string;acknowledgedBy?:string;resolvedAt?:string;resolvedBy?:string;resolutionNote?:string;reopenCount:number;retryPending:boolean};
 export type Audit = {id:string;entityId:string;action:string;actorId:string;actorName:string;actorType:string;at:string;details:unknown};
@@ -40,7 +41,7 @@ function parse(text:string,clock:string):{instant:string|null;tz?:string;date?:s
   } catch {return {instant:null,tz,completeness:'partial',kind:'ambiguous'};}
 }
 export function interpret(ending:Ending,text:string,clarification:string|undefined,shipment:Pick<Shipment,'windowStart'|'windowEnd'>,clock=RC):Result {
-  const delay=(ending==='completed'||ending==='dropped')&&/\brunning late\b|\bdelayed\b|\bbroke down\b|\bbreakdown\b/i.test(text);
+  const delay=(ending==='completed'||ending==='dropped')&&/\brunning late\b|\bdelayed\b|\bbroke down\b|\bbreakdown\b/i.test(text+' '+(clarification||''));
   const base:Result={outcome:'ambiguous',capture:'uncaptured',instant:null,assessment:delay?'delay':'none',delay,completeness:'partial',reasons:[],clarificationAsked:false,raw:text};
   if(ending!=='completed') return {...base,outcome:ending,reasons:[ending==='no_answer'?'unanswered':ending,...(delay?['delay_reported']:[])]};
   let p=parse(text,clock);
@@ -56,6 +57,18 @@ export function interpret(ending:Ending,text:string,clarification:string|undefin
   const assessment:Assessment=delay?'delay':p.instant?(Date.parse(p.instant)>Date.parse(shipment.windowEnd)?'delay':Date.parse(p.instant)<Date.parse(shipment.windowStart)?'early':'on_time'):'none';
   const reasons=delay?['delay_reported']:assessment==='delay'?['eta_after_window']:p.instant?[]:[p.kind];
   return {...base,...p,capture:p.instant?'captured':'uncaptured',outcome:p.instant?'eta_captured':p.kind==='incomplete_eta'?'eta_incomplete':'ambiguous',assessment,reasons};
+}
+export function interpretVoice(text:string,clarification:string|undefined,shipment:Pick<Shipment,'windowStart'|'windowEnd'>,clock=RC):Result {
+ const ending=voiceEnding(text+' '+(clarification||''));
+ const normalized=normalizeSpeech(text),followup=clarification?normalizeSpeech(clarification):undefined;
+ const result=interpret(ending,normalized,followup,shipment,clock);
+ // Uncertain estimates are never promoted to a precise ETA by normalization.
+ const uncertain=uncertainSpeech(clarification||text);
+ if(ending==='completed'&&uncertain){result.instant=null;result.capture='uncaptured';result.outcome='ambiguous';result.completeness='partial';result.assessment=result.delay?'delay':'none';result.reasons=result.delay?['delay_reported','ambiguous']:['ambiguous'];}
+ const times=[...(followup||normalized).matchAll(/\b(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)\b/gi)].map(m=>`${m[1]}:${m[2]||'00'}${m[3][0].toLowerCase()}`);
+ if(ending==='completed'&&new Set(times).size>1){result.instant=null;result.capture='uncaptured';result.outcome='ambiguous';result.completeness='conflict';result.assessment=result.delay?'delay':'none';result.reasons=result.delay?['delay_reported','range_or_conflict']:['range_or_conflict'];}
+ result.raw=text+(clarification?'\nAgent: Please clarify the date, time and timezone.\nCarrier: '+clarification:'');
+ return result;
 }
 export type Scenario={id:string;label:string;description:string;steps:{ending:Ending;text:string;clarification?:string}[]};
 const ontime='November 11, 2026 at 3:30 PM Central Time';
@@ -93,6 +106,22 @@ export function transition(input:State,a:Action,actor:Actor):State {
  if(actor.role!=='coordinator')throw Error('Read-only role cannot change records.');
  const s:State=structuredClone(input); if(s.requests.includes(a.requestId))return s;
  if(!a.requestId||a.requestId.length>150)throw Error('A valid request ID is required.');
+ if(a.type==='voice_demo'){
+  if(a.expectedVersion!==input.version)throw Error('The workspace changed during this conversation. Close the draft, refresh the workspace, and review a new voice demo before saving.');
+  if(a.reviewed!==true)throw Error('Review the voice transcript before saving.');
+  if(!['browser_voice','typed_demo'].includes(String(a.inputMethod)))throw Error('Voice input method required.');
+  const text=requireText(a.text,'Reviewed carrier answer',4000);
+  const clarification=a.clarification?requireText(a.clarification,'Clarification',2000):undefined;
+  if(a.heard!==undefined&&(typeof a.heard!=='string'||a.heard.length>6000))throw Error('Invalid original transcript.');
+  // Start and finish are persisted together: abandoning a draft leaves no stuck check.
+  const started=transition(input,{type:'request',shipmentId:a.shipmentId,requestId:a.requestId+':start'},actor);
+  const attempt=started.attempts.at(-1)!;
+  attempt.inputMethod=a.inputMethod as Attempt['inputMethod'];
+  const ended=transition(started,{type:'event',attemptId:attempt.id,requestId:a.requestId+':end',payload:{ending:voiceEnding(text+' '+(clarification||'')),text,clarification,voiceDemo:true}},actor);
+  ended.audit.push({id:'voice-review-'+a.requestId,entityId:attempt.id,action:'voice_demo_reviewed',details:{inputMethod:a.inputMethod,heard:a.heard||null,reviewedText:text,clarification:clarification||null},at:ended.clock,actorId:actor.id,actorName:actor.name,actorType:'human'});
+  ended.requests.push(a.requestId);ended.version=input.version+1;return ended;
+ }
+
  s.clock=Temporal.Instant.from(s.clock).add({seconds:1}).toString();const now=s.clock;
  const id=(kind:string,n=0)=>`${kind}-${a.requestId}-${n}`;
  const audit=(entityId:string,action:string,details:unknown={},system=false)=>s.audit.push({id:id('audit',s.audit.length),entityId,action,details,at:now,actorId:system?'simulation':actor.id,actorName:system?'Simulation engine':actor.name,actorType:system?'system':'human'});
@@ -134,7 +163,7 @@ export function transition(input:State,a:Action,actor:Actor):State {
   const payload=a.type==='event'?a.payload as typeof step:a.type==='timeout'?{ending:'dropped' as Ending,text:'Simulation timed out.'}:step;
   if(!payload||!['completed','dropped','voicemail','no_answer','refused','wrong_number'].includes(payload.ending)||typeof payload.text!=='string'||payload.text.length>8000)throw Error('Invalid simulated event.');
   if(a.type==='timeout'&&Date.parse(now)-Date.parse(at.startedAt)<120000)throw Error('Attempt has not reached the two-minute simulated timeout.');
-  const r=interpret(payload.ending,payload.text,payload.clarification,sh,at.startedAt);
+  const r=('voiceDemo' in payload&&payload.voiceDemo===true)?interpretVoice(payload.text,payload.clarification,sh,at.startedAt):interpret(payload.ending,payload.text,payload.clarification,sh,at.startedAt);
   const corrected=s.reports.some(r=>r.shipmentId===sh.id&&r.source==='human_correction'&&r.recordedAt>at.startedAt);
   Object.assign(at,{status:'finished',endedAt:now,outcome:r.outcome,transcript:r.raw,summary:r.reasons.length?r.reasons.join(', ').replaceAll('_',' '):`${r.assessment.replace('_',' ')} carrier-reported ETA`,clarificationAsked:r.clarificationAsked,timedOut:a.type==='timeout'});
   const report:Report={id:id('report'),shipmentId:sh.id,attemptId:at.id,source:'carrier',raw:r.raw,instant:r.instant,tz:r.tz,date:r.date,time:r.time,capture:r.capture,completeness:r.completeness,assessment:corrected?'none':r.assessment,delay:r.delay,stale:corrected,recordedAt:now,recordedBy:'simulation'};s.reports.push(report);

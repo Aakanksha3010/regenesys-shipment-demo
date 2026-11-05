@@ -1,12 +1,13 @@
 # SIMULATED validation report
 
-Generated 2026-11-05T21:01:45.264Z. Fixture labels test deterministic logic; these are not real-call or market-performance measurements.
+Generated 2026-11-05T21:51:43.933Z. Fixture labels test deterministic logic; these are not real-call or market-performance measurements.
 
 ## Automated checks
 
 - Domain: 62/62 passed.
 - PostgreSQL constraints and transactions (PGlite): 13/13 passed.
-- Chrome UI: 6 passed, 0 failed, 0 skipped, 0 flaky.
+- Voice interpretation and persistence: 10/10 passed.
+- Chrome UI: 11 passed, 0 failed, 0 skipped, 0 flaky.
 
 ## Capture and escalation scoring
 
@@ -49,6 +50,6 @@ This scoring subset uses 25 labelled initial-call fixtures. Retry, correction, c
 
 ## Verification boundaries
 
-The dedicated hosted Supabase project has the migration and eight fictional seed shipments. SQL smoke checks verified the seed, RLS on all 12 tables, and service-only mutation privileges. Hosted browser sign-in and server-to-Supabase operation remain unverified until a server key and Auth user are configured. Browser tests use local mode with an explicitly simulated identity.
+The dedicated hosted Supabase project has the migration and eight fictional seed shipments. SQL smoke checks verified the seed, RLS on all 12 tables, and service-only mutation privileges. Server-to-Supabase reads and coordinator membership were verified after local credential setup. An authenticated browser voice save to hosted Supabase has not been exercised. Browser tests use local mode with an explicitly simulated identity.
 
-No real calls, speech recognition, LLM extraction, external notifications, deployment, or production-readiness assessment occurred. Real-call connection rate: not applicable.
+Browser voice uses Web Speech APIs. Automated speech tests use controlled API doubles; actual microphone recognition and audible playback still require a user trial in a supported browser. No real calls, LLM extraction, external notifications, deployment, or production-readiness assessment occurred. Real-call connection rate: not applicable.

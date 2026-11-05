@@ -12,6 +12,7 @@ const rows=captureFixtures.map(([id,name,ending,text,clarification,instant,reaso
 });
 const positive=rows.filter(x=>x.expectedCapture),negative=rows.filter(x=>!x.expectedCapture),required=rows.filter(x=>x.required),notRequired=rows.filter(x=>!x.required);
 const correct=positive.filter(x=>x.capture&&x.correctInstant).length,falseCaptures=negative.filter(x=>x.capture).length,covered=required.filter(x=>x.escalated&&x.reasonsMatch).length,falseAlerts=notRequired.filter(x=>x.escalated).length;
+const voice=JSON.parse(await readFile('validation/voice-results.json','utf8'));
 const domain=JSON.parse(await readFile('validation/domain-results.json','utf8'));
 const database=JSON.parse(await readFile('validation/database-results.json','utf8'));
 const browser=JSON.parse(await readFile('validation/browser-results.json','utf8'));
@@ -24,6 +25,7 @@ Generated ${new Date().toISOString()}. Fixture labels test deterministic logic; 
 
 - Domain: ${domain.tests.filter((x:{passed:boolean})=>x.passed).length}/${domain.tests.length} passed.
 - PostgreSQL constraints and transactions (PGlite): ${database.tests.filter((x:{passed:boolean})=>x.passed).length}/${database.tests.length} passed.
+- Voice interpretation and persistence: ${voice.tests.filter((x:{passed:boolean})=>x.passed).length}/${voice.tests.length} passed.
 - Chrome UI: ${browser.stats.expected} passed, ${browser.stats.unexpected} failed, ${browser.stats.skipped} skipped, ${browser.stats.flaky} flaky.
 
 ## Capture and escalation scoring
@@ -43,10 +45,10 @@ ${rows.map(r=>`| ${r.id} | ${r.name} | ${(r.expectedCapture?r.capture&&r.correct
 
 ## Verification boundaries
 
-The dedicated hosted Supabase project has the migration and eight fictional seed shipments. SQL smoke checks verified the seed, RLS on all 12 tables, and service-only mutation privileges. Hosted browser sign-in and server-to-Supabase operation remain unverified until a server key and Auth user are configured. Browser tests use local mode with an explicitly simulated identity.
+The dedicated hosted Supabase project has the migration and eight fictional seed shipments. SQL smoke checks verified the seed, RLS on all 12 tables, and service-only mutation privileges. Server-to-Supabase reads and coordinator membership were verified after local credential setup. An authenticated browser voice save to hosted Supabase has not been exercised. Browser tests use local mode with an explicitly simulated identity.
 
-No real calls, speech recognition, LLM extraction, external notifications, deployment, or production-readiness assessment occurred. Real-call connection rate: not applicable.
+Browser voice uses Web Speech APIs. Automated speech tests use controlled API doubles; actual microphone recognition and audible playback still require a user trial in a supported browser. No real calls, LLM extraction, external notifications, deployment, or production-readiness assessment occurred. Real-call connection rate: not applicable.
 `;
 await mkdir('validation',{recursive:true});await writeFile('validation/REPORT.md',body);
 console.log(`Report written. Exact captures ${correct}/${positive.length}; false captures ${falseCaptures}; escalation coverage ${covered}/${required.length}; false alerts ${falseAlerts}.`);
-if(falseCaptures||falseAlerts||correct!==positive.length||covered!==required.length||domain.tests.some((x:{passed:boolean})=>!x.passed)||database.tests.some((x:{passed:boolean})=>!x.passed)||browser.stats.unexpected)process.exitCode=1;
+if(voice.tests.some((x:{passed:boolean})=>!x.passed)||falseCaptures||falseAlerts||correct!==positive.length||covered!==required.length||domain.tests.some((x:{passed:boolean})=>!x.passed)||database.tests.some((x:{passed:boolean})=>!x.passed)||browser.stats.unexpected)process.exitCode=1;

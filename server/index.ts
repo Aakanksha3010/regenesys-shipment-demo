@@ -11,7 +11,7 @@ const port=Number(process.env.PORT||4173);
 const hosted=process.env.DATA_MODE==='supabase';
 if(hosted&&(!process.env.SUPABASE_URL||!process.env.SUPABASE_SECRET_KEY||!process.env.SUPABASE_PUBLISHABLE_KEY))throw Error('Supabase mode requires URL, publishable key and server-only secret key. No silent local fallback.');
 await mkdir('.data',{recursive:true});
-const persistence=hosted?await hostedStore(process.env.SUPABASE_URL!,process.env.SUPABASE_SECRET_KEY!):await localStore('.data/postgres');
+const persistence=hosted?await hostedStore(process.env.SUPABASE_URL!,process.env.SUPABASE_SECRET_KEY!):await localStore(process.env.LOCAL_DATA_PATH||'.data/postgres');
 const store=persistence.store;
 const publicAuth=hosted?createClient(process.env.SUPABASE_URL!,process.env.SUPABASE_PUBLISHABLE_KEY!,{auth:{persistSession:false,autoRefreshToken:false}}):null;
 const app=express();app.disable('x-powered-by');app.use(express.json({limit:'32kb'}));
@@ -29,7 +29,7 @@ app.use('/api',async(req,res,next)=>{try{
 app.get('/api/state',async(_req,res)=>{try{res.json({state:await store.read(),actor:res.locals.actor});}catch(e){res.status(500).json({error:(e as Error).message});}});
 app.post('/api/actions',async(req,res)=>{try{
  const action=req.body;if(!action||typeof action.type!=='string'||typeof action.requestId!=='string')throw Error('Invalid action.');
- // Provider events are internal to the server. Users can only play assigned fixtures.
+ // Provider events are internal. Browser voice submissions use the reviewed voice_demo command.
  if(action.type==='event')throw Error('Provider events cannot be submitted by the browser.');
  const state=await store.dispatch(action,res.locals.actor);res.json({state});
  }catch(e){res.status(400).json({error:(e as Error).message});}});
@@ -37,5 +37,5 @@ app.post('/api/reset',async(req,res)=>{if(hosted){res.status(403).json({error:'H
  // Reset only the isolated local snapshot, in one transaction; never touches another schema.
  if('db' in persistence){await persistence.db.transaction(async tx=>{await tx.exec('truncate shipment_demo.snapshot, shipment_demo.contacts, shipment_demo.shipments, shipment_demo.checks, shipment_demo.attempts, shipment_demo.reports, shipment_demo.escalations, shipment_demo.events, shipment_demo.audit, shipment_demo.annotations, shipment_demo.suppression_events cascade');const {seed}=await import('../src/domain.js');await tx.query('select public.shipment_demo_save(-1,$1::jsonb)',[JSON.stringify(seed())]);});}
  res.json({state:await store.read()});});
-if(existsSync('dist/index.html')&&process.env.NODE_ENV==='production'){app.use(express.static('dist'));app.get('/{*path}',(_req,res)=>res.sendFile(path.resolve('dist/index.html')));}else{const vite=await createViteServer({server:{middlewareMode:true},appType:'spa'});app.use(vite.middlewares);}
+if(existsSync('dist/index.html')&&process.env.NODE_ENV==='production'){app.use(express.static('dist'));app.get('/{*path}',(_req,res)=>res.sendFile(path.resolve('dist/index.html')));}else{const vite=await createViteServer({server:{middlewareMode:true,hmr:{port:port+100}},appType:'spa'});app.use(vite.middlewares);}
 app.listen(port,'127.0.0.1',()=>console.log(`Regenesys demo: http://127.0.0.1:${port} (${hosted?'Supabase Auth':'LOCAL · simulated identity'})`));

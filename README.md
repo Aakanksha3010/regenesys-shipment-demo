@@ -1,6 +1,6 @@
 # Regenesys Shipment Coordination Demo
 
-A **SIMULATED**, single-company shipment workspace: request a scripted carrier ETA, review delays and uncertainty, and keep a human-owned escalation queue. All carriers, people, contacts and shipments are fictional. A reported ETA is an estimate, not a guaranteed arrival.
+A **SIMULATED**, single-company shipment workspace: run a browser voice conversation or a scripted carrier ETA check, review delays and uncertainty, and keep a human-owned escalation queue. All carriers, people, contacts and shipments are fictional. A reported ETA is an estimate, not a guaranteed arrival.
 
 ## Run locally
 
@@ -23,6 +23,10 @@ Open **http://127.0.0.1:4173**. Local mode uses embedded PostgreSQL (PGlite), pe
 - Wrong-number/refusal suppression until a documented human review.
 - Human ETA corrections, notes, acknowledgement, resolution and reopening with preserved history. New call evidence cannot overwrite a newer human ETA correction, but reported delays and failures still reach the queue.
 - UTC-normalized ETA comparisons with named timezone handling, conservative clarification, timeout controls, duplicate-event protection and transactional persistence.
+
+For voice, open a shipment and select **Start voice demo**. Review the microphone disclosure, start the conversation, play the carrier, and review the transcript before saving. The agent speaks through browser text-to-speech and listens through browser speech recognition. It asks at most one clarification; uncertain answers remain unconfirmed. No phone calls are placed.
+
+Speech recognition support varies: if the embedded browser does not support it, use Chrome at the same localhost URL. [Browser speech recognition](https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition) may send audio to a browser-operated speech service and may require internet access. The app does not record or upload audio to Supabase; reviewed transcript text and its provenance are stored there. Microphone access starts only after opt-in and a user action. A clearly labelled typed fallback is available. This is a guided, rule-based conversation, not open-ended LLM reasoning.
 
 Read the [walkthrough](docs/WALKTHROUGH.md) and [validation report](validation/REPORT.md).
 
@@ -63,11 +67,11 @@ Supabase can report “RLS enabled, no policy” for these tables: this is inten
 
 The first hosted inspection also reported public execution permissions on Supabase's pre-existing `public.rls_auto_enable()` helper. That helper was not created or altered by this app. Review [anonymous execution](https://supabase.com/docs/guides/database/database-linter?lint=0028_anon_security_definer_function_executable) and [authenticated execution](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable) before any wider use. Two foreign keys lack secondary indexes in this tiny seed dataset; review [index advice](https://supabase.com/docs/guides/database/database-linter?lint=0001_unindexed_foreign_keys) before scaling it.
 
-No real calls, LLM, voice input, SMS/WhatsApp, carrier negotiation, receiving-site calls, TMS integration, deployment or production-readiness claim. Coordinator voice-to-record remains a future direction; this demo uses reviewed manual entry. Dates and timeout progression use the explicit simulation clock, not wall time. The parser supports the documented fixture patterns, not arbitrary carrier speech.
+No real calls, LLM, SMS/WhatsApp, carrier negotiation, receiving-site calls, TMS integration, deployment or production-readiness claim. Coordinator voice-to-record remains a future direction; shipment entry remains manual; the ETA voice conversation requires transcript review before save. Dates and timeout progression use the explicit simulation clock, not wall time. The parser supports documented date/time patterns and a bounded set of spoken numbers/ordinals. It does not understand arbitrary carrier speech; unsupported or tentative answers remain unconfirmed.
 
 ## Verify
 
-Chrome is required for the browser suite. Browser tests reset **local demo data** and must not point at a shared or hosted environment.
+Chrome is required for the browser suite. Tests launch their own local server on port 4180, with `.data/browser-tests` and a distinct development WebSocket port. They refuse server reuse and assert local mode before resetting fictional test data. The working Supabase app on port 4173 is unaffected. Voice browser tests use speech API doubles; they do not validate real microphone, transcription, or playback quality.
 
 ```sh
 npm test
@@ -76,6 +80,6 @@ npm run report
 npm run build
 ```
 
-The report separates scenario scoring from lifecycle, database and browser tests. Raw local test output is ignored because it may include machine paths. Supabase end-to-end sign-in remains a separate check requiring configured credentials.
+The report separates scenario scoring from lifecycle, database and browser tests. Raw local test output is ignored because it may include machine paths. Server-to-Supabase reads and coordinator membership were verified after credential configuration. An authenticated hosted voice save and a real microphone trial remain separate user checks.
 
 `npm run build` creates `dist`; `npm start` serves it on localhost. Deployment and live-provider work require separate configuration and authorization.
