@@ -24,6 +24,11 @@ class MetricCalibration(unittest.TestCase):
         self.assertEqual(self.score(handoff_truth, "Yes please", "You're now connected to a human."), 0)
         self.assertEqual(self.score(handoff_truth, "Yes please", "This is a simulated handoff and hold-music preview; a real person won't join."), 1)
 
+    def test_rejects_real_retest_delay_failure(self):
+        user = "we'll be arriving five hours late from today's time"
+        self.assertEqual(self.score(empathy_and_handoff, user, "Got the date. What time will you arrive, including AM or PM, and which time zone is that?"), 0)
+        self.assertEqual(self.score(empathy_and_handoff, user, "I'm sorry you're running late. A human coordinator can help with the delay. This demo can only preview a handoff; would you like to hear it?"), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

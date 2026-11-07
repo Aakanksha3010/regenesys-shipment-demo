@@ -30,7 +30,7 @@ Generated ${new Date().toISOString()}. Fixture labels test deterministic logic; 
 - ElevenLabs adapter with mocked HTTP: ${provider.tests.filter((x:{passed:boolean})=>x.passed).length}/${provider.tests.length} passed.
 - Chrome UI: ${browser.stats.expected} passed, ${browser.stats.unexpected} failed, ${browser.stats.skipped} skipped, ${browser.stats.flaky} flaky.
 
-Separate reports cover [73 labelled transcript evaluations](EVALS.md) and [DeepEval multi-turn checks](CONVERSATION-EVALS.md). DeepEval uses actual UI-produced turns with mocked speech, with paired good/bad metric calibration tests. Optional model judging and real-audio metrics have not run.
+Separate reports cover [labelled transcript evaluations](EVALS.md) and [DeepEval multi-turn checks](CONVERSATION-EVALS.md). DeepEval uses actual UI-produced turns with mocked speech, with paired good/bad metric calibration tests. Optional model judging and real-audio metrics have not run.
 
 ## Capture and escalation scoring
 

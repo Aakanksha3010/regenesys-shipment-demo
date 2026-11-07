@@ -1,6 +1,6 @@
 # SIMULATED transcript evaluations
 
-Generated 2026-11-07T09:23:51.375Z. Hand-labelled written inputs test interpretation and state transitions, not speech recognition, real carrier behavior or statistical accuracy.
+Generated 2026-11-07T09:43:36.951Z. Hand-labelled written inputs test interpretation and state transitions, not speech recognition, real carrier behavior or statistical accuracy.
 
 ## Original fixture baseline
 
@@ -16,11 +16,11 @@ Generated 2026-11-07T09:23:51.375Z. Hand-labelled written inputs test interpreta
 
 | Metric | Result |
 | --- | --- |
-| Cases passing every check | 48/48 |
-| Exact captured ETA | 17/17 |
-| False captures | 0/31 |
-| Required escalation coverage | 35/35 |
-| False alerts | 0/13 |
+| Cases passing every check | 52/52 |
+| Exact captured ETA | 18/18 |
+| False captures | 0/34 |
+| Required escalation coverage | 38/38 |
+| False alerts | 0/14 |
 
 ## Case results
 
@@ -99,5 +99,9 @@ Generated 2026-11-07T09:23:51.375Z. Hand-labelled written inputs test interpreta
 | V46 | frustrated caller | PASS |  |
 | V47 | negated delay | PASS |  |
 | V48 | declined human help | PASS |  |
+| V49 | real retest: relative five-hour delay | PASS |  |
+| V50 | real retest: unresolved baseline and timezone | PASS |  |
+| V51 | current clock is not an arrival estimate | PASS |  |
+| V52 | negated duration delay | PASS |  |
 
 The audio evaluation protocol is in evals/AUDIO-CHECKS.md. Real audio and authenticated hosted browser saves remain separate checks. A zero-error result on these fixtures does not establish general language understanding.

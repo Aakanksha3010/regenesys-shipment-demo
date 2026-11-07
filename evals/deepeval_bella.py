@@ -76,12 +76,16 @@ def empathy_and_handoff(turns):
     errors = []
     for user, reply in exchanges(turns):
         frustrated = re.search(r"frustrat|already told you|irritated|annoyed", user)
-        delay = re.search(r"\bdelay\b|broke down|running late", user)
+        delay = re.search(r"\bdelay\b|broke down|running late|\b(?:\d+|one|two|three|four|five|six|fifteen|thirty)[ -]+(?:hours?|hrs?|minutes?|mins?)[ -]+late\b", user)
         human = re.search(r"(?:speak|talk).{0,25}(?:human|person|coordinator)", user)
         if frustrated and not re.search(r"sorry|understand|frustrating", reply):
             errors.append("Frustration was not acknowledged.")
         if (frustrated or delay or human) and not re.search(r"human|coordinator", reply):
             errors.append("Delay, frustration, or human request did not receive a human-help offer.")
+        if delay and re.search(r"got the date|what time|which time zone|including am or pm", reply):
+            errors.append("Reported delay received a slot question instead of immediate human help.")
+        if delay and not re.search(r"sorry|understand", reply):
+            errors.append("Reported delay was not acknowledged empathetically.")
     return errors
 
 
@@ -130,7 +134,7 @@ def main():
             if isinstance(metric, BellaContractMetric):
                 applies = not (
                     (metric.label == "Retain supplied slots" and not re.search(r"p\.?m\.?|a\.?m\.?|tomorrow|november|time zone", user_text)) or
-                    (metric.label == "Empathy and human help" and not re.search(r"frustrat|already told you|irritated|annoyed|delay|broke down|running late|human", user_text))
+                    (metric.label == "Empathy and human help" and not re.search(r"frustrat|already told you|irritated|annoyed|delay|broke down|late|human", user_text))
                 )
                 if not applies:
                     not_applicable.append({"conversation": record["name"], "metric": metric.label})

@@ -51,4 +51,8 @@ export const cases:EvalCase[]=[
  {id:'V46',category:'frustrated caller',text:'I already told you, stop asking, this is frustrating',expectedInstant:null,reasons:['ambiguous','caller_frustrated']},
  {id:'V47',category:'negated delay',text:'No delay. November 11, 2026 at 3 PM Central time',expectedInstant:'2026-11-11T21:00:00Z',reasons:[]},
  {id:'V48',category:'declined human help',text:'I do not need a human',expectedInstant:null,reasons:['ambiguous']},
+ {id:'V49',category:'real retest: relative five-hour delay',text:"we'll be arriving five hours late from today's time",expectedInstant:null,reasons:['delay_reported'],assessment:'delay'},
+ {id:'V50',category:'real retest: unresolved baseline and timezone',text:"we'll be arriving five hours late from today's time",clarification:"right now it's three, so I'm gonna be arriving five hours late from the estimate. And the time zone is same as yours",expectedInstant:null,reasons:['delay_reported'],assessment:'delay'},
+ {id:'V51',category:'current clock is not an arrival estimate',text:"Today right now it's 3 PM Central time; we'll arrive five hours late from the estimate",expectedInstant:null,reasons:['delay_reported'],assessment:'delay'},
+ {id:'V52',category:'negated duration delay',text:'We are not five hours late. November 11, 2026 at 3 PM Central time',expectedInstant:'2026-11-11T21:00:00Z',reasons:[],assessment:'on_time'},
 ];

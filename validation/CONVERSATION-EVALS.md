@@ -1,9 +1,9 @@
 # Bella conversation evaluations
 
-Generated 2026-11-07T09:36:13.992904+00:00.
+Generated 2026-11-07T09:44:39.827510+00:00.
 
-DeepEval 4.3.3: 19/19 local contract checks across 6 browser conversations.
-5 non-applicable metric checks excluded; 1 microphone-denial record without a caller turn excluded.
+DeepEval 4.3.3: 22/22 local contract checks across 7 browser conversations.
+6 non-applicable metric checks excluded; 1 microphone-denial record without a caller turn excluded.
 
 React conversation outputs, mocked speech recognition and synthesis; no real audio.
 
@@ -34,3 +34,6 @@ These deterministic regression checks do not establish general conversational in
 | explicit human request offers help without another ETA question | Caller-facing language | PASS |
 | explicit human request offers help without another ETA question | Empathy and human help | PASS |
 | explicit human request offers help without another ETA question | Truthful simulated handoff | PASS |
+| real retest regression: five hours late immediately offers a simulated handoff and preserves unconfirmed ETA | Caller-facing language | PASS |
+| real retest regression: five hours late immediately offers a simulated handoff and preserves unconfirmed ETA | Empathy and human help | PASS |
+| real retest regression: five hours late immediately offers a simulated handoff and preserves unconfirmed ETA | Truthful simulated handoff | PASS |

@@ -113,3 +113,17 @@ test('explicit human request offers help without another ETA question',async({pa
  await panel.getByRole('checkbox').last().check();await panel.getByRole('button',{name:'Save reviewed voice demo'}).click();await expect(panel).not.toBeVisible();
  const state=(await (await request.get('/api/state')).json()).state;expect(state.escalations[0].reasons.map((r:any)=>r.reason)).toContain('human_requested');expect(state.contacts[0].suppressed).toBe(false);
 });
+
+test('real retest regression: five hours late immediately offers a simulated handoff and preserves unconfirmed ETA',async({page,request})=>{
+ const answer="we'll be arriving five hours late from today's time";
+ await mockSpeech(page,[answer,'No thanks']);const panel=await open(page);await panel.getByLabel('Agent audio').selectOption('browser');await panel.getByRole('checkbox').first().check();await panel.getByRole('button',{name:'Start conversation'}).click();
+ await expect(panel.getByText('Understood. Thanks for the update.',{exact:true})).toBeVisible();
+ const spoken=await page.evaluate(()=>(window as any).__spokenPrompts);
+ expect(spoken).toHaveLength(3);expect(spoken[1]).toMatch(/sorry.*human coordinator.*demo.*preview/i);
+ expect(spoken[1]).not.toMatch(/got the date|what time|time zone|connected|AM or PM/i);
+ expect((await (await request.get('/api/state')).json()).state.checks).toHaveLength(0);
+ await panel.getByRole('checkbox').last().check();await panel.getByRole('button',{name:'Save reviewed voice demo'}).click();await expect(panel).not.toBeVisible();
+ const state=(await (await request.get('/api/state')).json()).state;
+ expect(state.reports[0].instant).toBeNull();expect(state.reports[0].capture).toBe('uncaptured');expect(state.reports[0].assessment).toBe('delay');
+ expect(state.escalations[0].reasons.map((r:any)=>r.reason)).toContain('delay_reported');expect(state.audit.at(-1).details.handoffChoice).toBe('declined');
+});

@@ -80,6 +80,27 @@ test('30-minute delay after a partial ETA escalates without calculating an inven
  assert.equal(result.instant,null);assert.equal(result.voiceIntent,'delay_report');assert.equal(result.assessment,'delay');assert.ok(result.reasons.includes('delay_reported'));
  assert.equal(callerReply(result),'delay_handoff');
 });
+test('reported five-hour delay immediately offers human help without inventing a date or ETA',()=>{
+ const first="we'll be arriving five hours late from today's time";
+ const followup="right now it's three, so I'm gonna be arriving five hours late from the estimate. And the time zone is same as yours";
+ for(const [answer,clarification] of [[first,undefined],[first,followup],[followup,undefined],["Today right now it's 3 PM Central time; we'll arrive five hours late from the estimate",undefined]]){
+  const result=interpretVoice(answer!,clarification,sh);
+  assert.equal(result.voiceIntent,'delay_report');assert.equal(result.instant,null);assert.equal(result.date,undefined);assert.equal(result.time,undefined);assert.equal(result.tz,undefined);
+  assert.equal(result.capture,'uncaptured');assert.equal(result.assessment,'delay');assert.ok(result.reasons.includes('delay_reported'));
+  assert.equal(callerReply(result),'delay_handoff');
+ }
+ assert.equal(voiceClarification(first),'delay_handoff');
+ assert.match(voicePrompts.delay_handoff,/sorry.*human coordinator.*demo.*preview/i);
+ assert.doesNotMatch(voicePrompts.delay_handoff,/got the date|connected|transfer successful/i);
+ const s=transition(seed(),{...action,text:first},localActor);
+ assert.equal(s.reports[0].instant,null);assert.equal(s.escalations.length,1);assert.equal(s.escalations[0].reasons[0].reason,'delay_reported');
+});
+test('duration-based lateness supports hours and minutes without treating negated lateness as a delay',()=>{
+ for(const answer of ['We are 5 hours late','Arriving five-hours late','We are two hrs late','Arriving fifteen minutes late'])assert.equal(interpretVoice(answer,undefined,sh).delay,true);
+ for(const answer of ['We are not five hours late','We are not 30 minutes late','We are not running late'])assert.equal(interpretVoice(answer,undefined,sh).delay,false);
+ assert.equal(interpretVoice("Today right now it's 3 PM Central time",undefined,sh).instant,null);
+ assert.equal(voiceClarification("Today right now it's 3 PM Central time"),'clarification');
+});
 test('human requests and frustration receive empathy and a human queue reason without suppressing contact',()=>{
  for(const text of ['I want to speak to a human','I already told you, stop asking, this is frustrating']){
   const result=interpretVoice(text,undefined,sh);assert.ok(result.reasons.some(r=>['human_requested','caller_frustrated'].includes(r)));
@@ -89,7 +110,7 @@ test('human requests and frustration receive empathy and a human queue reason wi
 });
 test('caller prompts stay shipment-focused and never expose coordinator review or backend details',()=>{
  for(const key of ['intro','preview','review','escalation','delay_handoff','empathy_handoff','human_handoff'] as const){
-  assert.doesNotMatch(voicePrompts[key],/transcript|backend|database|save|review|cleanliness|healthy|happy life/i);
+  assert.doesNotMatch(voicePrompts[key],/\b(?:transcript|backend|database|save|review|cleanliness|healthy|happy life)\b/i);
  }
  assert.equal(voicePrompts.preview,voicePrompts.intro);
  assert.equal(classifyVoiceIntent("I'm not frustrated and don't need a human").frustrated,false);

@@ -12,6 +12,8 @@ export function normalizeSpeech(text: string): string {
 }
 
 export function voiceClarification(text:string):VoicePrompt {
+ if(hasDelayEvidence(text))return 'delay_handoff';
+ if(hasUnresolvedTimeReference(text))return 'clarification';
  const normalized=normalizeSpeech(text);
  if(uncertainSpeech(text)||/\bbetween\b|\bactually\b|\bmidnight\b/i.test(text))return 'clarification';
  const date=/\b(?:today|tomorrow)\b|\b\d{4}-\d{2}-\d{2}\b|\b(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2}\b/i.test(normalized);
@@ -33,9 +35,14 @@ export function voiceEnding(text: string): 'completed'|'refused'|'wrong_number'|
 export const uncertainSpeech = (text:string) => /\bmaybe\b|\bperhaps\b|\bnot (?:sure|certain)\b|\bi think\b|\bi guess\b|\bmight\b|\bprobably\b|\bhopefully\b|\bapproximately\b|\baround\b/i.test(text);
 
 export function hasDelayEvidence(text:string):boolean {
-  const positive=text.replace(/\b(?:not|never)\s+(?:running late|delayed|late)\b|\b(?:won't|will not) be late\b|\bno delays?\b/gi,'');
-  return /\brunning late\b|\bdelay(?:ed)?\b|\bbroke down\b|\bbreakdown\b|\b(?:will be|going to be|arriving|we are|we're|i am|i'm) late\b|\b(?:\d+|thirty|fifteen|twenty|forty|sixty)[ -]+minutes? late\b/i.test(positive);
+  const duration='(?:\\d+(?:\\.\\d+)?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty|thirty|forty|sixty)[ -]+(?:hours?|hrs?|minutes?|mins?|days?)';
+  const positive=text.replace(new RegExp('\\b(?:not|never)\\s+(?:(?:'+duration+'|running)\\s+)?late\\b|\\b(?:not|never)\\s+delayed\\b|\\b(?:won\'t|will not) be late\\b|\\bno delays?\\b','gi'),'');
+  return /\brunning late\b|\bdelay(?:ed)?\b|\bbroke down\b|\bbreakdown\b|\b(?:will be|going to be|arriving|we are|we're|i am|i'm) late\b/i.test(positive)||new RegExp('\\b'+duration+'[ -]+late\\b','i').test(positive);
 }
+
+// These refer to a clock or an unresolved baseline, not an absolute arrival.
+// Do not add durations to the device clock or to a guessed scheduled ETA.
+export const hasUnresolvedTimeReference=(text:string)=>/\bright now\b|\bcurrent time\b|\btoday['’]s time\b|\b(?:late|later)\s+(?:from|than)\s+(?:(?:the|our|original)\s+)*(?:estimate|scheduled|estimate[d]? arrival)\b/i.test(text);
 
 export function classifyVoiceIntent(text:string){
  const ending=voiceEnding(text);

@@ -48,3 +48,7 @@ Live calling, a real hold queue and human pickup need a telephony/voice session 
 Intent recognition is a bounded rule set. It is not an open-ended conversational LLM or proof of general intent/emotion understanding. Human review is retained for uncertain information. There are no SMS/WhatsApp messages, carrier negotiations, receiving-site calls or external notifications.
 
 Before wider use, review the pre-existing Supabase helper execution warnings and disabled leaked-password protection documented in the README. No compliance or production-readiness claim is made.
+
+## Follow-up from the real microphone retest
+
+The reported utterance “we'll be arriving five hours late from today's time” exposed a missing hour-duration delay pattern. The follow-up fix recognizes the delay immediately, responds empathetically, and offers only a simulated handoff. Current-clock references and unresolved estimate offsets are not converted into an arrival date/time/timezone. The exact report and its follow-up are regression fixtures; a new microphone trial after this fix is still pending.
