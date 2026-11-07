@@ -153,7 +153,7 @@ def main():
     destination.write_text(json.dumps(report, indent=2))
     lines = ["# Bella conversation evaluations", "", f"Generated {report['generatedAt']}.", "",
              f"DeepEval 4.3.3: {report['passed']}/{report['checks']} {'local contract and model-judged' if args.judge else 'local contract'} checks across {len(records)} browser conversations.",
-             f"{len(not_applicable)} non-applicable metric checks excluded; {len(loaded)-len(records)} microphone-denial record without a caller turn excluded.",
+             f"{len(not_applicable)} non-applicable metric checks excluded; {len(loaded)-len(records)} records without a caller turn excluded.",
              "", report["evidence"] + ".", "", "LLM judge: " + report["llmJudge"] + ".",
              "", "Audio metrics: " + report["audioMetrics"] + ".", "",
              "These deterministic regression checks do not establish general conversational intelligence or acoustic quality.", "",

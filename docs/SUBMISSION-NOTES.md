@@ -62,3 +62,9 @@ The reported utterance “we'll be arriving five hours late from today's time”
 - Purva shares the existing Regenesys workspace through her own approved account. Account creation does not automatically grant membership.
 
 Physical audio deletion runs while the app is running and at startup. An always-on cleanup job is still required for strict seven-day deletion while the local app is offline. The app is not publicly deployed, so Purva cannot open this machine's localhost URL remotely.
+
+## Screenshot feedback follow-up
+
+Voice samples now use a non-question greeting and explicit microphone-off labels. The sample cannot start recognition; microphone consent and Start conversation are required. The duplicate Hear agent control was removed. Scripted controls are labelled Test scenarios and explain their purpose separately from Talk with Bella.
+
+Partial shipment dictation no longer clears existing details. Common window label variants and America Chicago are understood; day-first, explicit-year dates can differ across an overnight window. Missing years and ambiguous compact times such as 344 PM are not guessed. The UI lists changed fields and targeted corrections, and still requires review before saving. Consecutive applied dictations remain in the saved source text.

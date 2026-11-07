@@ -7,17 +7,26 @@ import {extractShipment,type EntryFields} from './shipment-entry';
 export function ShipmentFields({shipment,contacts,scenarios,busy}:{shipment?:Shipment;contacts:Contact[];scenarios:Scenario[];busy:boolean}){
  const local=(iso:string)=>Temporal.Instant.from(iso).toZonedDateTimeISO(shipment!.windowTz).toPlainDateTime().toString().slice(0,16);
  const [fields,setFields]=useState<EntryFields>({reference:shipment?.reference||'',contactId:shipment?.contactId||contacts[0]?.id||'',origin:shipment?.origin||'',destination:shipment?.destination||'',windowStart:shipment?local(shipment.windowStart):'2026-11-11T13:00',windowEnd:shipment?local(shipment.windowEnd):'2026-11-11T17:00',windowTz:shipment?.windowTz||'America/Chicago',scenarioId:shipment?.scenarioId||scenarios[0]?.id||'',note:'',reason:''});
- const [transcript,setTranscript]=useState(''),[source,setSource]=useState(''),[method,setMethod]=useState('typed_dictation'),[sourceMethod,setSourceMethod]=useState(''),[reviewed,setReviewed]=useState(false),[warnings,setWarnings]=useState<string[]>([]);
+ const [transcript,setTranscript]=useState(''),[source,setSource]=useState(''),[method,setMethod]=useState('typed_dictation'),[sourceMethod,setSourceMethod]=useState(''),[reviewed,setReviewed]=useState(false),[warnings,setWarnings]=useState<string[]>([]),[updated,setUpdated]=useState<string[]>([]);
  function change(key:keyof EntryFields,value:string){setFields(f=>({...f,[key]:value}));setReviewed(false);}
- function apply(){const result=extractShipment(transcript,contacts);setFields(f=>({...f,...(!shipment?{reference:'',contactId:'',origin:'',destination:'',windowStart:'',windowEnd:'',windowTz:'',note:''}:{}),...result.fields}));setWarnings(result.warnings);setSource(transcript);setSourceMethod(method);setReviewed(false);}
+ function apply(){
+  const result=extractShipment(transcript,contacts);
+  const combined=source&&source!==transcript?source+'\nNext dictation: '+transcript:transcript;
+  if(combined.length>4000){setWarnings(['The combined dictation is too long. Finish this draft by editing the fields manually.']);return;}
+  setFields(f=>({...f,...result.fields}));setWarnings(result.warnings);setUpdated(Object.keys(result.fields));setSource(combined);setSourceMethod(sourceMethod==='typed_dictation'?'typed_dictation':method);setReviewed(false);
+ }
+ const names:Record<string,string>={reference:'shipment reference',contactId:'carrier',origin:'origin',destination:'destination',windowStart:'window start',windowEnd:'window end',windowTz:'timezone',note:'note'};
+ const missing=['reference','contactId','origin','destination','windowStart','windowEnd','windowTz'].filter(key=>!fields[key as keyof EntryFields]);
+
  const input=(label:string,key:keyof EntryFields,type='text',maxLength=150)=><label>{label}<input name={key} type={type} required maxLength={maxLength} value={fields[key]} disabled={busy} onChange={e=>change(key,e.target.value)}/></label>;
  return <>
   <p>Type the details, or describe the shipment and review the filled fields. Use fictional details in this workspace.</p>
-  <details className="shipment-dictation"><summary>Fill with your voice</summary><p>Say the field names, then their values. Dates need a year and times need AM or PM.</p><blockquote>Reference RG 1050. Carrier Northline Freight. Origin Dallas, Texas. Destination Austin, Texas. Delivery date November eleventh, 2026. Window start one PM. Window end five PM. Timezone Central time.</blockquote>
+  <details className="shipment-dictation"><summary>Fill with your voice</summary><p>Say the field names, then their values. You can update just one field at a time. Dates need a year and times need AM or PM. For an overnight window, give a separate date for each end.</p><blockquote>Reference RG 1050. Carrier Northline Freight. Origin Dallas, Texas. Destination Austin, Texas. Delivery date November eleventh, 2026. Window start one PM. Window end five PM. Timezone Central time.</blockquote>
    <Dictation disabled={busy} onText={text=>{setTranscript(text);setMethod('browser_voice');setReviewed(false);}}/>
    <label>Shipment dictation<textarea value={transcript} maxLength={4000} disabled={busy} onChange={e=>{setTranscript(e.target.value);setMethod('typed_dictation');setReviewed(false);}} placeholder="Your words appear here. You can edit them before filling the form."/></label>
-   <button type="button" disabled={busy||!transcript.trim()} onClick={apply}>Fill fields from description</button><p className="hint">Nothing is saved yet. Unclear or missing details stay blank for you to complete.</p>
+   <button type="button" disabled={busy||!transcript.trim()} onClick={apply}>Fill fields from description</button><p className="hint">Only clearly understood fields are updated. Your other entries stay as they are. Nothing is saved yet.</p>
   </details>
+  {source&&<p role="status">{updated.length?'Updated: '+updated.map(k=>names[k]||k).join(', ')+'. Other fields were kept.':'No fields were changed. Edit the description or complete the form below.'}{missing.length>0&&' Still needed: '+missing.map(k=>names[k]).join(', ')+'.'}</p>}
   {warnings.length>0&&<div className="voice-warning" role="status">{warnings.map(w=><p key={w}>{w}</p>)}</div>}
   <div className="form-grid">
    {input('Shipment reference','reference','text',60)}

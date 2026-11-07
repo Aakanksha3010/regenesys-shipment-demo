@@ -1,9 +1,9 @@
 # Bella conversation evaluations
 
-Generated 2026-11-07T10:06:16.378095+00:00.
+Generated 2026-11-07T10:24:24.892205+00:00.
 
 DeepEval 4.3.3: 22/22 local contract checks across 7 browser conversations.
-6 non-applicable metric checks excluded; 1 microphone-denial record without a caller turn excluded.
+6 non-applicable metric checks excluded; 2 records without a caller turn excluded.
 
 React conversation outputs, mocked speech recognition and synthesis; no real audio.
 

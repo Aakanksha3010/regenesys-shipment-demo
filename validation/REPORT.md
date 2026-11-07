@@ -1,15 +1,15 @@
 # SIMULATED validation report
 
-Generated 2026-11-07T10:06:17.074Z. Fixture labels test deterministic logic; these are not real-call or market-performance measurements.
+Generated 2026-11-07T10:24:25.431Z. Fixture labels test deterministic logic; these are not real-call or market-performance measurements.
 
 ## Automated checks
 
-- Shipment dictation, handoff, access control and audio history: 12/12 passed.
+- Shipment dictation, handoff, access control and audio history: 14/14 passed.
 - Domain: 66/66 passed; 218 transitions replayed through SQL with snapshot and relational projection checks.
 - PostgreSQL constraints and transactions (PGlite): 15/15 passed.
 - Voice interpretation and persistence: 17/17 passed.
 - ElevenLabs adapter with mocked HTTP: 5/5 passed.
-- Chrome UI: 25 passed, 0 failed, 0 skipped, 0 flaky.
+- Chrome UI: 27 passed, 0 failed, 0 skipped, 0 flaky.
 
 Separate reports cover [labelled transcript evaluations](EVALS.md) and [DeepEval multi-turn checks](CONVERSATION-EVALS.md). DeepEval uses actual UI-produced turns with mocked speech, with paired good/bad metric calibration tests. Optional model judging and real-audio metrics have not run.
 

@@ -34,7 +34,7 @@ Say “We are five hours late” and accept the simulated handoff. During/after 
 
 ## Voice-assisted shipment entry
 
-Choose **Add shipment → Fill with your voice**. Dictate using the example field labels. Select **Fill fields from description**, correct all extracted details and complete any blank fields. Check the field-review box before saving. Editing a field revokes that confirmation. An existing shipment retains fields you did not dictate; a new shipment leaves unprovided business fields blank. The practice scenario remains a separately selected simulation setting.
+Choose **Add shipment → Fill with your voice**. Dictate using the example field labels. Select **Fill fields from description**, correct all extracted details and complete any blank fields. Check the field-review box before saving. Editing a field revokes that confirmation. Both new and existing shipment drafts retain fields you did not dictate. The form identifies updated fields and explains unresolved dates or times. The practice scenario remains a separately selected simulation setting.
 
 ## Optional recording
 

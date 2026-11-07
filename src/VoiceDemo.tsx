@@ -20,6 +20,7 @@ export function VoiceDemo({shipment,clock,version,busy,onSave,loadVoices,generat
   const [consent,setConsent]=useState(false),[phase,setPhase]=useState<'ready'|'speaking'|'listening'|'holding'|'review'>('ready');
   const [text,setText]=useState(''),[clarification,setClarification]=useState(''),[heard,setHeard]=useState('');
   const [question,setQuestion]=useState(''),[error,setError]=useState(''),[reviewed,setReviewed]=useState(false);
+  const [sampleOnly,setSampleOnly]=useState(false);
   const [asked,setAsked]=useState(false),[usedMic,setUsedMic]=useState(false),[interim,setInterim]=useState('');
   const recognizer=useRef<Recognition|null>(null),alive=useRef(true),timer=useRef<ReturnType<typeof setTimeout>|null>(null);
   const speechTimer=useRef<ReturnType<typeof setTimeout>|null>(null),generation=useRef(0),saving=useRef(false);
@@ -59,6 +60,7 @@ export function VoiceDemo({shipment,clock,version,busy,onSave,loadVoices,generat
 
   async function speak(prompt:VoicePrompt,after?:()=>void){
     const message=voicePrompts[prompt];
+    setSampleOnly(prompt==='preview');
     stop();setQuestion(message);setPhase('speaking');
     setError('');
     if(!canSpeak){setError('Connect ElevenLabs and choose a voice, or select the browser voice fallback.');setPhase('review');return;}
@@ -69,7 +71,7 @@ export function VoiceDemo({shipment,clock,version,busy,onSave,loadVoices,generat
       if(failure){setError(failure);setPhase('review');}
       else if(after)after();else setPhase('review');
     };
-    const failure='Audio playback was unavailable. Try Preview voice again, use “Speak answer”, or type below.';
+    const failure='Audio playback was unavailable. Try Play voice sample again, use “Speak answer”, or type below.';
     speechTimer.current=setTimeout(()=>finish('Speech timed out. Please try again.'),45000);
     if(output==='elevenlabs'){
       try{
@@ -79,7 +81,7 @@ export function VoiceDemo({shipment,clock,version,busy,onSave,loadVoices,generat
         audioUrl.current=URL.createObjectURL(blob);const player=new Audio(audioUrl.current);audio.current=player;recording.current?.addBella(player);
         player.onended=()=>finish();player.onerror=()=>finish(failure);
         await player.play();
-      }catch(e){finish((e as Error).name==='NotAllowedError'?'Your browser blocked playback. Click Preview voice to enable audio.':(e as Error).message||failure);}
+      }catch(e){finish((e as Error).name==='NotAllowedError'?'Your browser blocked playback. Click Play voice sample to enable audio.':(e as Error).message||failure);}
     }else{
       const utterance=new SpeechSynthesisUtterance(message);utterance.lang='en-US';utterance.rate=1;
       const voices=window.speechSynthesis.getVoices();
@@ -98,7 +100,7 @@ export function VoiceDemo({shipment,clock,version,busy,onSave,loadVoices,generat
 
   function listen(followup=false,first=text,handoff=false){
     if(!consent||!SpeechRecognition){setError('Enable microphone use in a supported browser, or type a demo answer.');return;}
-    stop();setError('');setInterim('');setReviewed(false);setPhase('listening');
+    stop();setSampleOnly(false);setError('');setInterim('');setReviewed(false);setPhase('listening');
     const r=new SpeechRecognition();recognizer.current=r;
     const turn=generation.current;let finalText='',failed=false;
     r.lang='en-US';r.continuous=false;r.interimResults=true;
@@ -161,7 +163,7 @@ export function VoiceDemo({shipment,clock,version,busy,onSave,loadVoices,generat
       <label>Agent audio<select aria-label="Agent audio" value={output} disabled={active||busy} onChange={e=>{setOutput(e.target.value);setError('');}}><option value="elevenlabs">ElevenLabs · natural voice</option><option value="browser">Browser voice · basic fallback</option></select></label>
       {output==='elevenlabs'&&<>{options?.configured?<><label>Voice<select aria-label="Agent voice" value={voiceId} disabled={active||busy} onChange={e=>setVoiceId(e.target.value)}>{options.voices.map(v=><option key={v.id} value={v.id}>{v.name}</option>)}</select></label><p className="hint">{options.voices.find(v=>v.id===voiceId)?.description||'No voices available. Add a voice in ElevenLabs, then reopen this demo.'}</p><small>Previewing a new voice uses ElevenLabs credits. Only generic agent prompts are sent to ElevenLabs.</small></>:<p className="voice-warning">{options?'ElevenLabs is not connected yet. Add your API key locally and restart the app to enable natural speech.':'Loading available voices…'}</p>}</>}
       {output==='browser'&&<p className="hint">Basic system voice. Quality depends on your browser and device.</p>}
-      <button disabled={busy||active||!canSpeak} onClick={()=>speak('preview')}><Volume2 size={17}/>Preview voice</button>
+      <p className="hint">Voice sample only: Bella will not listen here. To talk, enable your microphone below and choose Start conversation.</p><button disabled={busy||active||!canSpeak||!!recording.current} onClick={()=>speak('preview')}><Volume2 size={17}/>Play voice sample</button>
     </div>
     {!SpeechRecognition&&<div className="voice-warning">Speech recognition is unavailable in this browser. Open this app in Chrome for microphone input. You can still type an answer here; it will be labelled “typed demo”.</div>}
     <label className="voice-consent"><input type="checkbox" checked={consent} disabled={active||busy} onChange={e=>setConsent(e.target.checked)}/><span>Use my microphone for this demo. My browser may send audio to its speech-recognition service. The transcript is saved only after I review it. Audio recording is a separate choice below.</span></label>
@@ -170,10 +172,9 @@ export function VoiceDemo({shipment,clock,version,busy,onSave,loadVoices,generat
     {recording.current&&<button disabled={busy} onClick={()=>{recording.current?.discard();recording.current=null;recorded.current=undefined;setRecordingActive(false);setRecordConsent(false);}}>Discard audio · keep transcript</button>}
     <div className="voice-controls">
       <button className="primary" disabled={busy||active||!consent||!SpeechRecognition||!!text||!canSpeak} onClick={begin}><Mic size={17}/>Start conversation</button>
-      <button disabled={busy||active||!canSpeak} onClick={()=>speak('intro')}><Volume2 size={17}/>Hear agent</button>
       {active&&<button onClick={()=>{stop();setPhase('review');setInterim('');}}><Square size={16}/>Stop audio</button>}
     </div>
-    <div className={'voice-agent '+(active?'active':'')} aria-live="polite"><span className="voice-orb"><Mic size={25}/></span><div><strong>{phase==='holding'?'Simulated hold music…':phase==='listening'?'Listening to your answer…':phase==='speaking'?'Agent speaking…':'Regenesys agent'}</strong><p>{question||intro}</p>{interim&&<p className="voice-interim">Heard so far: {interim}</p>}</div></div>
+    <div className={'voice-agent '+(active?'active':'')} aria-live="polite"><span className="voice-orb"><Mic size={25}/></span><div><strong>{phase==='holding'?'Simulated hold music…':phase==='listening'?'Listening to your answer…':phase==='speaking'?(sampleOnly?'Playing sample · microphone off':'Bella speaking · wait to reply'):sampleOnly?'Voice sample finished · microphone off':'Ready · not listening for a reply'}</strong><p>{question||intro}</p>{interim&&<p className="voice-interim">Heard so far: {interim}</p>}</div></div>
     {handoffOffered&&!handoff&&<div className="voice-warning"><strong>Continue with a coordinator</strong><p>In this simulation, you can switch to the coordinator screen, join the conversation and reply. No phone transfer takes place.</p><div className="voice-controls"><button disabled={active||busy||!canSpeak} onClick={acceptHandoff}>Yes · try handoff</button><button disabled={active||busy||!canSpeak} onClick={()=>{setHandoffChoice('declined');speak('handoff_declined');}}>No · end conversation</button></div></div>}
     {handoff&&<section className="handoff-panel"><strong>{handoff.status==='joined'?'Coordinator joined · simulated':handoff.status==='ended'?'Practice conversation ended':'Waiting for coordinator · simulated'}</strong><p>You can play both sides. Open the coordinator desk to join and respond.</p><button disabled={busy||phase==='speaking'||phase==='listening'} onClick={()=>{stop();setPhase('review');setCoordinatorScreen(true);}}>Open coordinator desk</button>{handoff.messages.length>0&&<ol className="handoff-messages">{handoff.messages.map((m,i)=><li key={i}><strong>{m.role==='coordinator'?'Coordinator':'Caller'} · simulated</strong><p>{m.text}</p></li>)}</ol>}{handoff.status==='joined'&&<><label className="voice-field">Caller message<textarea maxLength={2000} value={callerMessage} onChange={e=>setCallerMessage(e.target.value)}/></label><button disabled={!callerMessage.trim()||handoff.messages.length>=20} onClick={()=>{setHandoff({...handoff,messages:[...handoff.messages,{role:'caller',text:callerMessage.trim()}]});setCallerMessage('');setReviewed(false);}}>Send caller message</button></>}</section>}
     {error&&<div className="error" role="alert">{error}</div>}

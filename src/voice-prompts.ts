@@ -1,6 +1,6 @@
 // Only these generic prompts are sent to the speech provider. No shipment or transcript data.
 export const voicePrompts = {
-  preview: "Hi, this is Regenesys checking your delivery. What date and time do you expect to arrive, and which time zone is that?",
+  preview: "Hi, I'm Bella, your Regenesys shipment assistant. This is a voice sample. Start a conversation when you're ready to talk with me.",
   intro: "Hi, this is Regenesys checking your delivery. What date and time do you expect to arrive, and which time zone is that?",
   clarification: "Could you give me the arrival date, time with AM or PM, and time zone? If you're unsure, that's okay. Just let me know.",
   ask_date: "Got the time and time zone. What date will you arrive?",

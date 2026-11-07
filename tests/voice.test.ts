@@ -112,7 +112,7 @@ test('caller prompts stay shipment-focused and never expose coordinator review o
  for(const key of ['intro','preview','review','escalation','delay_handoff','empathy_handoff','human_handoff'] as const){
   assert.doesNotMatch(voicePrompts[key],/\b(?:transcript|backend|database|save|review|cleanliness|healthy|happy life)\b/i);
  }
- assert.equal(voicePrompts.preview,voicePrompts.intro);
+ assert.notEqual(voicePrompts.preview,voicePrompts.intro);assert.match(voicePrompts.preview,/voice sample/);assert.doesNotMatch(voicePrompts.preview,/What date|which time zone/i);
  assert.equal(classifyVoiceIntent("I'm not frustrated and don't need a human").frustrated,false);
  assert.equal(classifyVoiceIntent("I don't need a human").humanRequested,false);
  assert.equal(interpretVoice('No delay. November 11, 2026 at 3 PM Central time',undefined,sh).delay,false);

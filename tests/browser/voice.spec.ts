@@ -61,14 +61,14 @@ test('voice entry is usable on mobile and transcript edits revoke review',async(
 
 test('natural voice requires setup and browser fallback is an explicit choice',async({page,request})=>{
  const panel=await open(page);await expect(panel.getByText('ElevenLabs is not connected yet.',{exact:false})).toBeVisible();
- await expect(panel.getByRole('button',{name:'Preview voice'})).toBeDisabled();
+ await expect(panel.getByRole('button',{name:'Play voice sample'})).toBeDisabled();
  expect((await (await request.get('/api/state')).json()).state.checks).toHaveLength(0);
- await panel.getByLabel('Agent audio').selectOption('browser');await expect(panel.getByRole('button',{name:'Preview voice'})).toBeEnabled();
+ await panel.getByLabel('Agent audio').selectOption('browser');await expect(panel.getByRole('button',{name:'Play voice sample'})).toBeEnabled();
 });
 test('ElevenLabs preview uses selected voice and provider failure never falls back silently',async({page,request})=>{
  await page.route('**/api/voice/options',route=>route.fulfill({json:{configured:true,voices:[{id:'voiceA',name:'Warm voice',description:'Conversational'},{id:'voiceB',name:'Clear voice',description:'Clear and friendly'}]}}));
  let payload:any;await page.route('**/api/voice/speech',route=>{payload=route.request().postDataJSON();return route.fulfill({status:503,json:{error:'ElevenLabs usage unavailable for test'}});});
- const panel=await open(page);await panel.getByLabel('Agent voice').selectOption('voiceB');await panel.getByRole('button',{name:'Preview voice'}).click();
+ const panel=await open(page);await panel.getByLabel('Agent voice').selectOption('voiceB');await panel.getByRole('button',{name:'Play voice sample'}).click();
  await expect(panel.getByRole('alert')).toHaveText('ElevenLabs usage unavailable for test');expect(payload).toEqual({prompt:'preview',voiceId:'voiceB'});
  await expect(panel.getByLabel('Agent audio')).toHaveValue('elevenlabs');expect((await (await request.get('/api/state')).json()).state.checks).toHaveLength(0);
 });
@@ -76,7 +76,13 @@ test('closing while natural audio loads prevents late playback',async({page})=>{
  await page.route('**/api/voice/options',route=>route.fulfill({json:{configured:true,voices:[{id:'voiceA',name:'Warm voice',description:''}]}}));
  let release!:()=>void;const waiting=new Promise<void>(resolve=>{release=resolve;});
  await page.route('**/api/voice/speech',async route=>{await waiting;await route.fulfill({status:503,json:{error:'Delayed result'}}).catch(()=>{});});
- const panel=await open(page);await panel.getByRole('button',{name:'Preview voice'}).click();await expect(panel.getByText('Agent speaking…')).toBeVisible();await panel.getByRole('button',{name:'Close dialog'}).click();release();await expect(panel).not.toBeVisible();
+ const panel=await open(page);await panel.getByRole('button',{name:'Play voice sample'}).click();await expect(panel.getByText('Playing sample · microphone off')).toBeVisible();await panel.getByRole('button',{name:'Close dialog'}).click();release();await expect(panel).not.toBeVisible();
+});
+test('voice sample clearly keeps the microphone off and cannot be mistaken for a conversation',async({page,request})=>{
+ await mockSpeech(page,['Tomorrow at 3 PM Central time']);const panel=await open(page);await panel.getByLabel('Agent audio').selectOption('browser');await panel.getByRole('button',{name:'Play voice sample'}).click();
+ await expect(panel.getByText('Voice sample finished · microphone off',{exact:true})).toBeVisible();await expect(panel.getByRole('button',{name:'Start conversation'})).toBeDisabled();await expect(panel.getByLabel('Carrier answer')).toHaveValue('');
+ const turns=await page.evaluate(()=>(window as any).__conversationTurns);expect(turns.filter((t:any)=>t.role==='user')).toHaveLength(0);expect(turns[0].content).toContain('This is a voice sample.');expect(turns[0].content).not.toContain('What date');
+ expect((await (await request.get('/api/state')).json()).state.checks).toHaveLength(0);
 });
 
 test('video regression: retain 3 p.m., ask date and zone only, offer delay handoff',async({page,request})=>{

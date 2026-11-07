@@ -26,6 +26,16 @@ test('dictation leaves ambiguous carriers, dates and zones unresolved',()=>{
 test('dictation rejects impossible dates and does not silently repair them',()=>{
  const r=extractShipment('Delivery date February 30, 2026. Window start 1 PM. Window end 5 PM.',seed().contacts);assert.equal(r.fields.windowStart,undefined);assert.equal(r.fields.windowEnd,undefined);
 });
+test('screenshot dictation identifies timezone and explains unresolved dates and compact time',()=>{
+ const r=extractShipment('Windows started keypad 7th November 344 p.m. and window and it would be 8th November for 10:00 a.m. Windows time zone would be America Chicago practice time',seed().contacts);
+ assert.equal(r.fields.windowTz,'America/Chicago');assert.equal(r.fields.windowStart,undefined);assert.equal(r.fields.windowEnd,undefined);
+ assert.ok(r.warnings.some(w=>w.includes('344 PM')));assert.ok(r.warnings.some(w=>w.includes('window start')&&w.includes('year')));assert.ok(r.warnings.some(w=>w.includes('window end')&&w.includes('year')));
+});
+test('dictation accepts explicit day-first dates and different overnight window dates',()=>{
+ const r=extractShipment('Window start would be 7th November 2026 at 3:44 p.m. and window end would be 8th November 2026 for 10:00 a.m. Window time zone would be America Chicago.',seed().contacts);
+ assert.deepEqual(r.warnings,[]);assert.equal(r.fields.windowStart,'2026-11-07T15:44');assert.equal(r.fields.windowEnd,'2026-11-08T10:00');assert.equal(r.fields.windowTz,'America/Chicago');
+ const invalid=extractShipment('Window start 31 February 2026 at 3 PM. Timezone same as yours.',seed().contacts);assert.equal(invalid.fields.windowStart,undefined);assert.equal(invalid.fields.windowTz,undefined);
+});
 test('voice-filled shipment requires review and its fields and source persist through SQL',async()=>{
  const fields={...extractShipment(description,seed().contacts).fields,scenarioId:'on_time',entryMethod:'browser_voice',voiceTranscript:description};
  assert.throws(()=>transition(seed(),{type:'create',requestId:'entry',fields},localActor),/Review all/);
