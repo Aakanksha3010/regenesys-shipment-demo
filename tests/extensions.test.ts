@@ -1,0 +1,67 @@
+import {test as nodeTest,after} from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtemp,mkdir,writeFile,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import path from 'node:path';
+import {extractShipment} from '../src/shipment-entry.js';
+import {seed,transition,localActor} from '../src/domain.js';
+import {localStore} from '../server/store.js';
+import {authorize} from '../server/access.js';
+import {localAudio,metadata,recordingPermission,validateAudio,findPlayable,purgeAudio,RETENTION_MS} from '../server/audio.js';
+const results:{name:string;passed:boolean}[]=[];
+function test(name:string,fn:()=>void|Promise<void>){nodeTest(name,async()=>{try{await fn();results.push({name,passed:true});}catch(e){results.push({name,passed:false});throw e;}});}
+after(async()=>{await mkdir('validation',{recursive:true});await writeFile('validation/extensions-results.json',JSON.stringify({tests:results},null,2));});
+const description='Reference RG 1050. Carrier Northline Freight. Origin Dallas, Texas. Destination Austin, Texas. Delivery date November eleventh, 2026. Window start one PM. Window end five PM. Timezone Central time.';
+const voiceAction={type:'voice_demo',requestId:'extension-voice',shipmentId:'shipment-1',expectedVersion:0,text:'We are five hours late',reviewed:true,inputMethod:'browser_voice',handoffChoice:'accepted',handoffSession:{status:'ended',messages:[{role:'coordinator',text:'I can help review the delay.'},{role:'caller',text:'Thank you.'}]}};
+test('shipment dictation extracts only explicitly supplied supported fields',()=>{
+ const result=extractShipment(description,seed().contacts);assert.deepEqual(result.warnings,[]);
+ assert.deepEqual(result.fields,{reference:'RG-1050',origin:'Dallas, Texas',destination:'Austin, Texas',contactId:'contact-1',windowTz:'America/Chicago',windowStart:'2026-11-11T13:00',windowEnd:'2026-11-11T17:00'});
+});
+test('dictation leaves ambiguous carriers, dates and zones unresolved',()=>{
+ const r=extractShipment('Reference RG 1060. Carrier Unknown. Delivery date tomorrow. Window start 3. Timezone same as yours.',seed().contacts);
+ assert.equal(r.fields.contactId,undefined);assert.equal(r.fields.windowStart,undefined);assert.ok(!r.fields.windowTz);assert.ok(r.warnings.length>=3);
+ assert.equal(extractShipment('Origin Dallas. Origin Austin.',seed().contacts).fields.origin,undefined);
+ assert.deepEqual(extractShipment('Maybe origin Dallas.',seed().contacts).fields,{});
+});
+test('dictation rejects impossible dates and does not silently repair them',()=>{
+ const r=extractShipment('Delivery date February 30, 2026. Window start 1 PM. Window end 5 PM.',seed().contacts);assert.equal(r.fields.windowStart,undefined);assert.equal(r.fields.windowEnd,undefined);
+});
+test('voice-filled shipment requires review and its fields and source persist through SQL',async()=>{
+ const fields={...extractShipment(description,seed().contacts).fields,scenarioId:'on_time',entryMethod:'browser_voice',voiceTranscript:description};
+ assert.throws(()=>transition(seed(),{type:'create',requestId:'entry',fields},localActor),/Review all/);
+ const {store,db}=await localStore();try{await store.dispatch({type:'create',requestId:'entry',fields:{...fields,voiceReviewed:'on'}},localActor);const s=await store.read();assert.equal(s.shipments.at(-1)?.reference,'RG-1050');assert.equal(s.audit.at(-1)?.action,'shipment_voice_entry_reviewed');assert.equal((s.audit.at(-1)?.details as any).transcript,description);}finally{await db.close();}
+});
+test('simulated handoff replies persist with the delay, without confirming an ETA',async()=>{
+ const {store,db}=await localStore();try{await store.dispatch(voiceAction,localActor);const s=await store.read();assert.equal(s.reports[0].instant,null);assert.equal(s.escalations[0].reasons[0].reason,'delay_reported');const details=s.audit.at(-1)!.details as any;assert.equal(details.handoffSession.mode,'simulated_only');assert.equal(details.handoffSession.messages[0].text,'I can help review the delay.');assert.equal(details.handoffSession.status,'ended');}finally{await db.close();}
+});
+test('invalid handoff roles, unaccepted handoffs and pre-join messages are rejected',()=>{
+ for(const fields of [{handoffChoice:'declined'},{handoffSession:{status:'waiting',messages:[{role:'coordinator',text:'Hello'}]}},{handoffSession:{status:'joined',messages:[{role:'system',text:'Hello'}]}}])assert.throws(()=>transition(seed(),{...voiceAction,...fields},localActor),/handoff/i);
+});
+test('authentication rejects absent, invalid and unassigned accounts',async()=>{
+ await assert.rejects(authorize(undefined,async()=>null,async()=>null),/Sign in/);
+ await assert.rejects(authorize('invalid',async()=>null,async()=>'coordinator'),/Session expired/);
+ await assert.rejects(authorize('valid',async()=>({id:'outsider'}),async()=>null),/waiting for workspace access/);
+});
+test('authorization uses a fresh membership lookup, never user-editable profile claims',async()=>{
+ let role:unknown='viewer';const getUser=async()=>({id:'viewer',email:'viewer@example.test',user_metadata:{role:'coordinator'}});
+ assert.equal((await authorize('valid',getUser,async()=>role)).role,'viewer');role=null;await assert.rejects(authorize('valid',getUser,async()=>role),/workspace access/);
+});
+test('shared team data is readable but viewer writes remain denied',async()=>{
+ const {store,db}=await localStore();try{await store.dispatch(voiceAction,{...localActor,id:'member-one'});const s=await store.read();assert.equal(s.escalations.length,1);assert.equal(s.audit.at(-1)?.actorId,'member-one');await assert.rejects(store.dispatch({type:'annotate',requestId:'viewer-note',shipmentId:'shipment-1',text:'no'},{id:'member-two',name:'Viewer',role:'viewer'}),/Read-only/);assert.equal((await store.read()).annotations.length,0);}finally{await db.close();}
+});
+test('recordings require consent, ownership and a reviewed voice conversation',()=>{
+ const state=transition(seed(),voiceAction,localActor),id=state.attempts[0].id;
+ assert.equal(recordingPermission(state,id,localActor,'yes').id,id);
+ assert.throws(()=>recordingPermission(state,id,localActor,'no'),/consent/);
+ assert.throws(()=>recordingPermission(state,id,{...localActor,id:'someone-else'},'yes'),/your own/);
+ assert.throws(()=>recordingPermission(state,id,{...localActor,role:'viewer'},'yes'),/Only coordinators/);
+});
+test('audio validates type, signature and limits and metadata has seven-day expiry',()=>{
+ validateAudio(Buffer.from([0x1a,0x45,0xdf,0xa3,0]),'audio/webm');assert.throws(()=>validateAudio(Buffer.from('<script>'),'audio/webm'),/not a supported/);
+ assert.throws(()=>validateAudio(Buffer.alloc(10_000_001),'audio/webm'),/under 10 MB/);
+ const record=metadata({id:'a',shipmentId:'s'},'audio/webm','microphone_only',1000);assert.equal(Date.parse(record.expiresAt)-Date.parse(record.createdAt),RETENTION_MS);
+});
+test('recording metadata persists, expired playback is denied and cleanup removes bytes',async()=>{
+ const directory=await mkdtemp(path.join(tmpdir(),'regenesys-audio-'));const {store,db}=await localStore();
+ try{const state=await store.dispatch(voiceAction,localActor),record=metadata(state.attempts[0],'audio/webm','microphone_only',1000),storage=await localAudio(directory);await storage.put(record.id,Buffer.from([0x1a,0x45,0xdf,0xa3,0]),record.mime);await store.dispatch({type:'attach_audio',requestId:'recording',recording:record},localActor);const persisted=await store.read();assert.equal(findPlayable(persisted,record.id,2000).id,record.id);assert.throws(()=>findPlayable(persisted,record.id,1000+RETENTION_MS),/expired/);assert.equal(await purgeAudio(storage,persisted,1000+RETENTION_MS),1);await assert.rejects(storage.get(record.id));assert.equal(persisted.audit.at(-1)?.action,'conversation_audio_saved');}finally{await db.close();await rm(directory,{recursive:true,force:true});}
+});

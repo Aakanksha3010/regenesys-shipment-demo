@@ -16,9 +16,9 @@ The localhost URL is available only on the machine running the app. A reviewer c
 1. Open RG-1041 and run the on-time scripted check. Show the sourced ETA, check lifecycle and attempt history.
 2. Open RG-1042 and run a late response. Acknowledge, annotate and resolve the human issue; resolution retains the delay history.
 3. Run a no-answer/retry case and a wrong-number case. Show immediate escalation, retry cap and contact suppression.
-4. Start Bella's voice demo. Say “3 PM IST”, then “November eleventh, 2026”. Only the date should be requested; IST is explicitly defined as India Standard Time.
+4. Choose Talk with Bella. Say “3 PM IST”, then “November eleventh, 2026”. Only the date should be requested; IST is explicitly defined as India Standard Time.
 5. Repeat with “expect the shipment to arrive at 3:00 p.m.”, then “There is a 30-minute delay”. Bella retains the time, offers human help, and does not manufacture 3:30 PM or a missing date.
-6. Say “I already told you, this is frustrating”. Hear empathy and a human-help offer. Accept to hear a labelled simulated hold-music preview. No human joins this demo.
+6. Say “I already told you, this is frustrating”. Hear empathy and a human-help offer. Accept the simulated handoff, open the coordinator desk, explicitly join and send a practice reply. Return to the caller screen to respond. You play both roles; no external person joins.
 7. Show the separate coordinator review and save the fictional result. Caller-facing speech does not discuss transcripts, saving or backend issues.
 
 ## Verified
@@ -36,7 +36,7 @@ The localhost URL is available only on the machine running the app. A reviewer c
 | --- | --- |
 | Repaired conversation with real microphone | User trial pending; verify actual recognition, latency and spoken output |
 | Signed-in hosted reviewed save | Pending; inspect saved rows and attribution, then refresh to confirm persistence |
-| Second demo user / viewer role | User must create the second Auth user; role assignment and read-only browser check remain |
+| Purva’s own account | Signup UI implemented; she must create/confirm her account, then receive workspace membership. Actual second-account sign-in, shared data and role checks remain |
 | Model-judged DeepEval scores | Optional extension, not run; evaluator model and API key required |
 | Recorded audio metrics | Not run; permitted recordings, reference transcripts and timings required |
 | Original PRD source transfer | Private source register still records the earlier failed local download; no reconstructed original is presented |
@@ -52,3 +52,13 @@ Before wider use, review the pre-existing Supabase helper execution warnings and
 ## Follow-up from the real microphone retest
 
 The reported utterance “we'll be arriving five hours late from today's time” exposed a missing hour-duration delay pattern. The follow-up fix recognizes the delay immediately, responds empathetically, and offers only a simulated handoff. Current-clock references and unresolved estimate offsets are not converted into an arrival date/time/timezone. The exact report and its follow-up are regression fixtures; a new microphone trial after this fix is still pending.
+
+## Added for the reviewer walkthrough
+
+- Plain-language shipment actions, a useful Company directory, searchable Ask guidance and a What's new panel.
+- Voice-assisted Add shipment: dictate the labelled fields, fill the form, edit any mistakes, confirm every field, then save. Extraction does not guess missing fields.
+- Interactive simulated coordinator desk: context, transcript, explicit join, editable/dictated replies, caller responses and end state. Review and save persists the exchange in Activity without changing an unconfirmed ETA.
+- Optional consented audio history in a private bucket, with seven-day playback expiry. Synthetic browser capture/playback and hosted storage denial checks passed; real-device mixed audio and signed-in hosted attachment checks remain pending.
+- Purva shares the existing Regenesys workspace through her own approved account. Account creation does not automatically grant membership.
+
+Physical audio deletion runs while the app is running and at startup. An always-on cleanup job is still required for strict seven-day deletion while the local app is offline. The app is not publicly deployed, so Purva cannot open this machine's localhost URL remotely.

@@ -11,10 +11,10 @@ export const voicePrompts = {
   ask_time_timezone: "Got the date. What time will you arrive, including AM or PM, and which time zone is that?",
   review: "Thanks for the update. That's all I need.",
   escalation: "I don't want to get your arrival details wrong. A human coordinator can help from here.",
-  delay_handoff: "I'm sorry you're running late. A human coordinator can help with the delay. This demo can only preview a handoff; would you like to hear it?",
+  delay_handoff: "I'm sorry you're running late. A human coordinator can help with the delay. Would you like to try the simulated handoff and continue on the coordinator screen?",
   human_handoff: "Of course. Would you like me to help you reach a human coordinator?",
   empathy_handoff: "I'm sorry this has been frustrating. You shouldn't have to keep repeating yourself. Would you like to speak with a human coordinator?",
-  hold_demo: "This is a simulated handoff. You'll hear a short hold-music preview, but a real person won't join this demo.",
+  hold_demo: "This is a simulated handoff. You'll hear a short hold-music preview. Open the coordinator screen to play that role and join the conversation. A real person won't join by phone.",
   handoff_declined: "Understood. Thanks for the update.",
 } as const;
 export type VoicePrompt = keyof typeof voicePrompts;

@@ -6,7 +6,7 @@ Status: protocol prepared; a real ElevenLabs Bella MP3 generation succeeded on 7
 
 Use fictional details. Open a shipment → Start voice demo. Select ElevenLabs, preview Bella, then try Jessica if a brighter style is preferred. Record browser/device, voice, date, background condition and recognizer language. Check the app's simulation date before saying “tomorrow”.
 
-For each trial, record the intended sentence, the actual displayed transcript, proposed ETA/reasons, whether one clarification occurred, and the reviewed saved result. Never mark a trial successful merely because manual transcript editing repaired a recognition error. Preserve both original recognition and reviewed text; record edits explicitly. Regenesys does not store microphone audio.
+For each trial, record the intended sentence, the actual displayed transcript, proposed ETA/reasons, whether one clarification occurred, and the reviewed saved result. Never mark a trial successful merely because manual transcript editing repaired a recognition error. Preserve both original recognition and reviewed text; record edits explicitly. Optional recording now requires separate consent. It captures the microphone (and Bella when using ElevenLabs), excludes hold music/typed replies, and is attached only after review and save. Use the private audio-history flow; do not put recordings in the repository.
 
 | Trial | Say | Expected before save |
 | --- | --- | --- |
@@ -30,3 +30,5 @@ Repeat A01–A05 with at least two speakers and both quiet and moderately noisy 
 - Persistence: no rows before review; after save, exactly one check, attempt and canonical event, correct report/issue, signed-in reviewer attribution; refresh and verify persistence.
 
 Live carrier calls, telephony connection rates, and real-world operating performance are outside this protocol.
+
+Synthetic browser recording and playback are tested separately from acoustic quality. A fake browser audio device is used in automation; this does not prove real-device recognition, Bella mixing, or naturalness.

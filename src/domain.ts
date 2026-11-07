@@ -125,12 +125,19 @@ export function transition(input:State,a:Action,actor:Actor,settle=true):State {
   const text=requireText(a.text,'Reviewed carrier answer',4000);
   const clarification=a.clarification?requireText(a.clarification,'Clarification',2000):undefined;
   if(a.heard!==undefined&&(typeof a.heard!=='string'||a.heard.length>6000))throw Error('Invalid original transcript.');
+  let handoffSession:unknown;
+  if(a.handoffSession!==undefined){
+   const h=a.handoffSession as {status?:unknown;messages?:unknown};
+   if(!h||a.handoffChoice!=='accepted'||!['waiting','joined','ended'].includes(String(h.status))||!Array.isArray(h.messages)||h.messages.length>20)throw Error('Invalid simulated handoff.');
+   if(h.status==='waiting'&&h.messages.length)throw Error('Join the simulated handoff before replying.');
+   handoffSession={status:h.status,mode:'simulated_only',messages:h.messages.map(m=>{if(!m||!['coordinator','caller'].includes(m.role))throw Error('Invalid handoff role.');return {role:m.role,text:requireText(m.text,'Handoff reply',2000)};})};
+  }
   // Start and finish are persisted together: abandoning a draft leaves no stuck check.
   const started=transition(input,{type:'request',shipmentId:a.shipmentId,requestId:a.requestId+':start'},actor);
   const attempt=started.attempts.at(-1)!;
   attempt.inputMethod=a.inputMethod as Attempt['inputMethod'];
   const ended=transition(started,{type:'event',attemptId:attempt.id,requestId:a.requestId+':end',payload:{ending:voiceEnding(text+' '+(clarification||'')),text,clarification,voiceDemo:true}},actor);
-  ended.audit.push({id:'voice-review-'+a.requestId,entityId:attempt.id,action:'voice_demo_reviewed',details:{inputMethod:a.inputMethod,handoffChoice:a.handoffChoice==='accepted'||a.handoffChoice==='declined'?a.handoffChoice:undefined,handoffMode:'simulated_only',heard:a.heard||null,reviewedText:text,clarification:clarification||null},at:ended.clock,actorId:actor.id,actorName:actor.name,actorType:'human'});
+  ended.audit.push({id:'voice-review-'+a.requestId,entityId:attempt.id,action:'voice_demo_reviewed',details:{inputMethod:a.inputMethod,handoffChoice:a.handoffChoice==='accepted'||a.handoffChoice==='declined'?a.handoffChoice:undefined,handoffMode:'simulated_only',handoffSession,heard:a.heard||null,reviewedText:text,clarification:clarification||null},at:ended.clock,actorId:actor.id,actorName:actor.name,actorType:'human'});
   ended.requests.push(a.requestId);ended.version=input.version+1;return ended;
  }
 
@@ -148,8 +155,17 @@ export function transition(input:State,a:Action,actor:Actor,settle=true):State {
  const ensureIssue=(sh:Shipment,at:Attempt,reasons:string[])=>{let e=openIssue(s,sh.id);if(!e){e={id:id('issue',s.escalations.length),shipmentId:sh.id,status:'open',reasons:[],attemptIds:[],openedAt:now,reopenCount:0,retryPending:false};s.escalations.push(e);audit(e.id,'escalation_opened',{shipmentId:sh.id},true);}for(const reason of reasons){if(!e.reasons.some(r=>r.reason===reason&&r.attemptId===at.id)){e.reasons.push({reason,attemptId:at.id,at:now});audit(e.id,'reason_added',{reason,attemptId:at.id},true);}}if(!e.attemptIds.includes(at.id)){e.attemptIds.push(at.id);audit(e.id,'attempt_linked',{attemptId:at.id},true);}at.escalationId=e.id;return e;};
  const startAttempt=(sh:Shipment,ch:Check,trigger:Attempt['trigger'])=>{if(s.contacts.find(c=>c.id===sh.contactId)?.suppressed)throw Error('Contact is suppressed. Review it before calling again.');const at:Attempt={id:id('attempt',s.attempts.length),requestId:a.requestId,shipmentId:sh.id,checkId:ch.id,trigger,mode:'simulated',attemptNumber:s.attempts.filter(at=>at.checkId===ch.id).length+1,status:'in_progress',startedAt:now};s.attempts.push(at);audit(at.id,'attempt_started',{shipmentId:sh.id,trigger,mode:'simulated'},true);return at;};
  switch(a.type){
+ case 'attach_audio':{
+  const r=a.recording as Record<string,unknown>;if(!r||r.consent!==true||typeof r.attemptId!=='string'||typeof r.id!=='string')throw Error('Consented recording metadata required.');
+  const at=s.attempts.find(at=>at.id===r.attemptId),review=s.audit.find(x=>x.entityId===r.attemptId&&x.action==='voice_demo_reviewed');
+  if(!at||at.inputMethod!=='browser_voice'||review?.actorId!==actor.id||r.shipmentId!==at.shipmentId)throw Error('Recording must belong to your reviewed conversation.');
+  audit(at.id,'conversation_audio_saved',{recording:r});break;
+ }
  case 'create':case 'edit': {
   const fields=a.fields as Record<string,unknown>;if(!fields)throw Error('Shipment fields required.');
+  const voiceEntry=fields.entryMethod!==undefined;
+  if(voiceEntry&&(!['browser_voice','typed_dictation'].includes(String(fields.entryMethod))||fields.voiceReviewed!=='on'))throw Error('Review all voice-filled shipment fields before saving.');
+  const entryTranscript=voiceEntry?requireText(fields.voiceTranscript,'Shipment description',4000):undefined;
   const reference=requireText(fields.reference,'Reference',60);const contactId=requireText(fields.contactId,'Contact',100);const origin=requireText(fields.origin,'Origin',150);const destination=requireText(fields.destination,'Destination',150);const windowTz=requireText(fields.windowTz,'Timezone',100);
   const windowStart=zoned(requireText(fields.windowStart,'Window start',40),windowTz);const windowEnd=zoned(requireText(fields.windowEnd,'Window end',40),windowTz);if(Date.parse(windowEnd)<=Date.parse(windowStart))throw Error('Window end must be after start.');
   if(!s.contacts.some(c=>c.id===contactId))throw Error('Choose a seeded contact.');
@@ -158,6 +174,7 @@ export function transition(input:State,a:Action,actor:Actor,settle=true):State {
   if(s.shipments.some(sh=>sh.reference.toLowerCase()===reference.toLowerCase()&&sh.id!==old?.id))throw Error('This reference is already reserved.');
   const sh:Shipment={id:old?.id||id('shipment'),reference,contactId,origin,destination,windowStart,windowEnd,windowTz,scenarioId,status:'not_checked'};
   if(old){const reason=requireText(a.reason,'Edit reason');audit(old.id,'shipment_edited',{before:old,after:sh,reason});Object.assign(old,sh);}else{s.shipments.push(sh);audit(sh.id,'shipment_created',{shipment:sh});}
+  if(voiceEntry)audit(sh.id,'shipment_voice_entry_reviewed',{inputMethod:fields.entryMethod,transcript:entryTranscript,reviewedFields:sh});
   if(fields.note)s.annotations.push({id:id('note'),shipmentId:sh.id,text:requireText(fields.note,'Note'),actorId:actor.id,at:now});break;
  }
  case 'request':case 'manual_retry': {

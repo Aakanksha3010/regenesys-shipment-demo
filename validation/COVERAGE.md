@@ -22,3 +22,5 @@ The user-approved amended implementation plan is retained outside the public app
 The November 7 scope extension explicitly adds voice IST as India Standard Time, targeted clarification, human-request/frustration intents, caller-facing empathy and a simulated hold preview. Eval V34's expectation changed for this explicit IST decision; V41 retains a separate unsupported-timezone negative case. No other failing fixture was relabelled merely to make a test pass.
 
 Remaining end-to-end acceptance items are listed in [submission notes](../docs/SUBMISSION-NOTES.md). Presence of an ID in this map is not a claim that a real carrier call or every possible utterance was tested.
+
+The subsequent user-approved extension adds a locally interactive coordinator desk, labelled voice shipment entry, private optional audio history, own-account signup with explicit membership, and in-product help. `tests/extensions.test.ts` and browser extension/auth/voice cases cover these changes. Purva shares the company workspace; signup does not create a private tenant or grant access automatically. Live second-account and real-device audio acceptance remain separate.

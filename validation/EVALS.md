@@ -1,6 +1,6 @@
 # SIMULATED transcript evaluations
 
-Generated 2026-11-07T09:43:36.951Z. Hand-labelled written inputs test interpretation and state transitions, not speech recognition, real carrier behavior or statistical accuracy.
+Generated 2026-11-07T09:58:24.660Z. Hand-labelled written inputs test interpretation and state transitions, not speech recognition, real carrier behavior or statistical accuracy.
 
 ## Original fixture baseline
 

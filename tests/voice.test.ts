@@ -90,7 +90,7 @@ test('reported five-hour delay immediately offers human help without inventing a
   assert.equal(callerReply(result),'delay_handoff');
  }
  assert.equal(voiceClarification(first),'delay_handoff');
- assert.match(voicePrompts.delay_handoff,/sorry.*human coordinator.*demo.*preview/i);
+ assert.match(voicePrompts.delay_handoff,/sorry.*human coordinator.*simulated handoff/i);
  assert.doesNotMatch(voicePrompts.delay_handoff,/got the date|connected|transfer successful/i);
  const s=transition(seed(),{...action,text:first},localActor);
  assert.equal(s.reports[0].instant,null);assert.equal(s.escalations.length,1);assert.equal(s.escalations[0].reasons[0].reason,'delay_reported');
