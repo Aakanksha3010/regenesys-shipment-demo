@@ -7,6 +7,8 @@ import { existsSync } from 'node:fs';
 import { mkdir } from 'node:fs/promises';
 import { localStore,hostedStore } from './store.js';
 import { localActor,scenarios,type Actor } from '../src/domain.js';
+import {createVoiceService,VoiceError} from './voice.js';
+const voice=createVoiceService(process.env.ELEVENLABS_API_KEY);
 const port=Number(process.env.PORT||4173);
 const hosted=process.env.DATA_MODE==='supabase';
 if(hosted&&(!process.env.SUPABASE_URL||!process.env.SUPABASE_SECRET_KEY||!process.env.SUPABASE_PUBLISHABLE_KEY))throw Error('Supabase mode requires URL, publishable key and server-only secret key. No silent local fallback.');
@@ -27,6 +29,9 @@ app.use('/api',async(req,res,next)=>{try{
  res.locals.actor=actor;next();
  }catch(e){res.status(401).json({error:(e as Error).message});}});
 app.get('/api/state',async(_req,res)=>{try{res.json({state:await store.read(),actor:res.locals.actor});}catch(e){res.status(500).json({error:(e as Error).message});}});
+app.use('/api/voice',(_req,res,next)=>{if(res.locals.actor.role!=='coordinator'){res.status(403).json({error:'Only coordinators can use the voice demo.'});return;}next();});
+app.get('/api/voice/options',async(_req,res)=>{try{res.json({configured:voice.configured,voices:voice.configured?await voice.list():[]});}catch(e){res.status(e instanceof VoiceError?e.status:503).json({error:e instanceof VoiceError?e.message:'Voice service unavailable.'});}});
+app.post('/api/voice/speech',async(req,res)=>{try{const audio=await voice.speak(req.body.prompt,req.body.voiceId);res.set({'Content-Type':'audio/mpeg','Cache-Control':'no-store'}).send(audio);}catch(e){res.status(e instanceof VoiceError?e.status:503).json({error:e instanceof VoiceError?e.message:'Voice service unavailable.'});}});
 app.post('/api/actions',async(req,res)=>{try{
  const action=req.body;if(!action||typeof action.type!=='string'||typeof action.requestId!=='string')throw Error('Invalid action.');
  // Provider events are internal. Browser voice submissions use the reviewed voice_demo command.

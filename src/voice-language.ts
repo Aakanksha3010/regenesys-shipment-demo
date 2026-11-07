@@ -1,3 +1,4 @@
+import type {VoicePrompt} from './voice-prompts.js';
 // Deliberately bounded speech normalization, not general natural-language extraction.
 export function normalizeSpeech(text: string): string {
   const numbers: Record<string, number> = {one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10,eleven:11,twelve:12};
@@ -5,7 +6,20 @@ export function normalizeSpeech(text: string): string {
   return text.replace(/\b(\d{1,2})(?:st|nd|rd|th)\b/gi,'$1')
     .replace(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(twenty[- ]\w+|thirty[- ]first|\w+)/gi,(all,month,day)=>ordinals[day.toLowerCase().replace('-',' ')]?`${month} ${ordinals[day.toLowerCase().replace('-',' ')]}`:all)
     .replace(/\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)(?:\s+(fifteen|thirty|forty[- ]five))?\s+(a\.?m\.?|p\.?m\.?)\b/gi,(_all,h,m,ap)=>`${numbers[h.toLowerCase()]}${m?':'+(({fifteen:'15',thirty:'30','forty five':'45'} as Record<string,string>)[m.toLowerCase().replace('-',' ')]):''} ${ap}`)
-    .replace(/\b(central|eastern)\s+(standard|daylight)\s+time\b/gi,'$1 time');
+    .replace(/\b(central|eastern)\s+(standard|daylight)\s+time\b/gi,'$1 time')
+    // Explicit demo alias shown beside the voice controls; never infer from device locale.
+    .replace(/\bi[ .]*s[ .]*t\b/gi,'India Standard Time');
+}
+
+export function voiceClarification(text:string):VoicePrompt {
+ const normalized=normalizeSpeech(text);
+ if(uncertainSpeech(text)||/\bbetween\b|\bactually\b|\bmidnight\b/i.test(text))return 'clarification';
+ const date=/\b(?:today|tomorrow)\b|\b\d{4}-\d{2}-\d{2}\b|\b(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2}\b/i.test(normalized);
+ const time=/\b(?:[1-9]|1[0-2])(?::[0-5]\d)?\s*(?:a\.?m\.?|p\.?m\.?)\b/i.test(normalized);
+ const zone=/\b(?:central time|ct|eastern time|et|india standard time|indian standard time)\b/i.test(normalized);
+ const missing=[!date?'date':'',!time?'time':'',!zone?'timezone':''].filter(Boolean).join('_');
+ const prompts:Record<string,VoicePrompt>={date:'ask_date',time:'ask_time',timezone:'ask_timezone',date_time:'ask_date_time',date_timezone:'ask_date_timezone',time_timezone:'ask_time_timezone'};
+ return prompts[missing]||'clarification';
 }
 
 export function voiceEnding(text: string): 'completed'|'refused'|'wrong_number'|'voicemail'|'no_answer' {
@@ -16,4 +30,24 @@ export function voiceEnding(text: string): 'completed'|'refused'|'wrong_number'|
   return 'completed';
 }
 
-export const uncertainSpeech = (text:string) => /\bmaybe\b|\bperhaps\b|\bnot sure\b|\bmight\b|\bprobably\b|\bhopefully\b|\bapproximately\b|\baround\b/i.test(text);
+export const uncertainSpeech = (text:string) => /\bmaybe\b|\bperhaps\b|\bnot (?:sure|certain)\b|\bi think\b|\bi guess\b|\bmight\b|\bprobably\b|\bhopefully\b|\bapproximately\b|\baround\b/i.test(text);
+
+export function hasDelayEvidence(text:string):boolean {
+  const positive=text.replace(/\b(?:not|never)\s+(?:running late|delayed|late)\b|\b(?:won't|will not) be late\b|\bno delays?\b/gi,'');
+  return /\brunning late\b|\bdelay(?:ed)?\b|\bbroke down\b|\bbreakdown\b|\b(?:will be|going to be|arriving|we are|we're|i am|i'm) late\b|\b(?:\d+|thirty|fifteen|twenty|forty|sixty)[ -]+minutes? late\b/i.test(positive);
+}
+
+export function classifyVoiceIntent(text:string){
+ const ending=voiceEnding(text);
+ const frustrated=/\b(?:frustrat(?:ed|ing)|annoy(?:ed|ing)|irritat(?:ed|ing)|angry|fed up|ridiculous)\b|\bwasting my time\b|\balready told you\b|\bnot listening\b|\bstop asking\b/i.test(text)&&!/\bnot (?:frustrated|annoyed|irritated|angry)\b/i.test(text);
+ const humanRequested=/\b(?:human|real person|representative|customer support|customer service)\b|\b(?:speak|talk|connect|transfer)\b.{0,35}\b(?:person|agent|coordinator)\b/i.test(text)&&!/\b(?:no|don't|do not|not)\b.{0,15}\b(?:need|want|human|person|support)\b/i.test(text);
+ const intent=ending!=='completed'?ending:hasDelayEvidence(text)?'delay_report':humanRequested?'human_request':frustrated?'frustration':/\b(?:\d|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b/i.test(text)?'eta_update':'unclear';
+ return {intent,frustrated,humanRequested};
+}
+
+export function callerReply(result:{reasons:string[];delay:boolean;voiceIntent?:string;frustrated?:boolean}):VoicePrompt{
+ if(result.frustrated)return 'empathy_handoff';
+ if(result.voiceIntent==='human_request')return 'human_handoff';
+ if(result.delay||result.reasons.includes('eta_after_window'))return 'delay_handoff';
+ return result.reasons.length?'escalation':'review';
+}

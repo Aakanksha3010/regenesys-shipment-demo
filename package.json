@@ -9,7 +9,10 @@
     "start": "NODE_ENV=production node --import tsx server/index.ts",
     "test": "node --import tsx --test tests/*.test.ts",
     "test:browser": "playwright test",
-    "report": "node --import tsx scripts/report.ts"
+    "report": "node --import tsx scripts/report.ts",
+    "eval": "node --import tsx scripts/evaluate.ts",
+    "lint": "tsc --noEmit",
+    "eval:conversations": ".venv-evals/bin/python evals/deepeval_bella.py"
   },
   "dependencies": {
     "@electric-sql/pglite": "0.5.15",

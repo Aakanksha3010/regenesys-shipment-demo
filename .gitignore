@@ -9,3 +9,7 @@ playwright-report/
 supabase/.temp/
 .DS_Store
 validation/*-results.json
+.venv-evals/
+.deepeval/
+__pycache__/
+*.pyc

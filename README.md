@@ -24,9 +24,17 @@ Open **http://127.0.0.1:4173**. Local mode uses embedded PostgreSQL (PGlite), pe
 - Human ETA corrections, notes, acknowledgement, resolution and reopening with preserved history. New call evidence cannot overwrite a newer human ETA correction, but reported delays and failures still reach the queue.
 - UTC-normalized ETA comparisons with named timezone handling, conservative clarification, timeout controls, duplicate-event protection and transactional persistence.
 
-For voice, open a shipment and select **Start voice demo**. Review the microphone disclosure, start the conversation, play the carrier, and review the transcript before saving. The agent speaks through browser text-to-speech and listens through browser speech recognition. It asks at most one clarification; uncertain answers remain unconfirmed. No phone calls are placed.
+For voice, open a shipment and select **Start voice demo**. Review the microphone disclosure, start the conversation, play the carrier, and review the transcript before saving. The agent speaks through ElevenLabs when configured and listens through browser speech recognition. Bella is the initial warm, bright voice; choose another available voice and click **Preview voice** to compare. Browser text-to-speech remains an explicitly selected basic fallback. It asks at most one clarification, targeted to the missing date, time or timezone; voice input explicitly defines IST as India Standard Time (Asia/Kolkata); uncertain answers remain unconfirmed. No phone calls are placed.
 
 Speech recognition support varies: if the embedded browser does not support it, use Chrome at the same localhost URL. [Browser speech recognition](https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition) may send audio to a browser-operated speech service and may require internet access. The app does not record or upload audio to Supabase; reviewed transcript text and its provenance are stored there. Microphone access starts only after opt-in and a user action. A clearly labelled typed fallback is available. This is a guided, rule-based conversation, not open-ended LLM reasoning.
+
+### Natural voice setup
+
+Create an ElevenLabs account, then open **Developers → API Keys**. Create a key with Text to Speech and Voices read permissions. Copy the full secret shown at creation, not the key ID. Add `ELEVENLABS_API_KEY=your_secret` to the ignored `.env`, then restart the server. See the [official key instructions](https://elevenlabs.io/docs/help-center/technical/how-do-i-authorize-myself-using-an-api-key).
+
+The server uses `eleven_multilingual_v2` with short, whole-utterance prompts. It sends only allowlisted generic agent prompts; shipment details and carrier transcripts are not sent to ElevenLabs. The key stays on the server. Generated prompt clips are cached in memory, with request limits and timeouts. Previewing new voices and generating new prompts consume ElevenLabs credits. No account or paid subscription is created by the app. Provider errors never silently switch to a system voice.
+
+The demo recognizes bounded intents for ETA updates, delays, human requests, frustration, wrong numbers and refusals. Frustration receives an empathetic response. Delays and explicit human requests offer human help; an accepted offer plays a clearly labelled six-second simulated hold-music preview. No person joins, no phone transfer occurs, and coordinator review is still required before saving. Caller-facing speech never mentions transcripts or backend processing.
 
 Read the [walkthrough](docs/WALKTHROUGH.md) and [validation report](validation/REPORT.md).
 
@@ -34,7 +42,7 @@ Read the [walkthrough](docs/WALKTHROUGH.md) and [validation report](validation/R
 
 The app can use a **dedicated** Supabase project. Connecting a GitHub repository in Supabase does not by itself host this React/Node application or configure its server secrets.
 
-1. Apply the SQL in `supabase/migrations/20261105205752_shipment_demo.sql` to your dedicated project, once. The initial owner's project already has this migration and eight seed shipments; do not apply it again there.
+1. Apply the SQL files in `supabase/migrations/` in filename order to your dedicated project, once. The initial owner’s project already has both migrations and eight seed shipments; do not reapply them there.
 2. In your ignored local `.env`, set:
 
 ```dotenv
@@ -65,9 +73,9 @@ React/Vite frontend → localhost-only Express server → either PGlite or Supab
 
 Supabase can report “RLS enabled, no policy” for these tables: this is intentional default-deny browser access; authorization is enforced by the Node server. See [Supabase's advisory explanation](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy). Database administrators and the server's privileged key remain trusted; history is not tamper-proof against administrators.
 
-The first hosted inspection also reported public execution permissions on Supabase's pre-existing `public.rls_auto_enable()` helper. That helper was not created or altered by this app. Review [anonymous execution](https://supabase.com/docs/guides/database/database-linter?lint=0028_anon_security_definer_function_executable) and [authenticated execution](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable) before any wider use. Two foreign keys lack secondary indexes in this tiny seed dataset; review [index advice](https://supabase.com/docs/guides/database/database-linter?lint=0001_unindexed_foreign_keys) before scaling it.
+The first hosted inspection also reported public execution permissions on Supabase's pre-existing `public.rls_auto_enable()` helper. That helper was not created or altered by this app. Review [anonymous execution](https://supabase.com/docs/guides/database/database-linter?lint=0028_anon_security_definer_function_executable) and [authenticated execution](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable) before any wider use. The second migration adds the missing report-attempt and shipment-contact indexes. Security-invoker views expose company settings, individual escalation reasons and escalation events to the server role only. Leaked-password protection is disabled in the current project; review [Supabase password security](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection) before wider use.
 
-No real calls, LLM, SMS/WhatsApp, carrier negotiation, receiving-site calls, TMS integration, deployment or production-readiness claim. Coordinator voice-to-record remains a future direction; shipment entry remains manual; the ETA voice conversation requires transcript review before save. Dates and timeout progression use the explicit simulation clock, not wall time. The parser supports documented date/time patterns and a bounded set of spoken numbers/ordinals. It does not understand arbitrary carrier speech; unsupported or tentative answers remain unconfirmed.
+No real calls, LLM, SMS/WhatsApp, carrier negotiation, receiving-site calls, TMS integration, deployment or production-readiness claim. Coordinator voice-to-record remains a future direction; shipment entry remains manual; the ETA voice conversation requires transcript review before save. Dates and timeout progression use the explicit simulation clock, not wall time. Advancing the clock closes all overdue attempts as dropped, timed-out calls. The read-only company configuration defaults to 120 seconds; `seed({timeoutSeconds: 30})` configures a different 1–3600 second limit for a fresh fixture. Existing snapshots retain their configured limit. The parser supports documented date/time patterns and a bounded set of spoken numbers/ordinals. It does not understand arbitrary carrier speech; unsupported or tentative answers remain unconfirmed.
 
 ## Verify
 
@@ -76,9 +84,13 @@ Chrome is required for the browser suite. Tests launch their own local server on
 ```sh
 npm test
 npm run test:browser
+npm run eval
 npm run report
+npm run lint
 npm run build
 ```
+
+`lint` currently runs strict TypeScript static checks, not an ESLint style ruleset. See [DeepEval setup and evidence boundaries](evals/README.md), [conversation evals](validation/CONVERSATION-EVALS.md), [transcript evals](validation/EVALS.md) and the [real audio protocol](evals/AUDIO-CHECKS.md).
 
 The report separates scenario scoring from lifecycle, database and browser tests. Raw local test output is ignored because it may include machine paths. Server-to-Supabase reads and coordinator membership were verified after credential configuration. An authenticated hosted voice save and a real microphone trial remain separate user checks.
 

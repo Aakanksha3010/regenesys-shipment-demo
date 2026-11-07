@@ -1,13 +1,16 @@
 # SIMULATED validation report
 
-Generated 2026-11-05T21:51:43.933Z. Fixture labels test deterministic logic; these are not real-call or market-performance measurements.
+Generated 2026-11-07T09:36:41.454Z. Fixture labels test deterministic logic; these are not real-call or market-performance measurements.
 
 ## Automated checks
 
-- Domain: 62/62 passed.
-- PostgreSQL constraints and transactions (PGlite): 13/13 passed.
-- Voice interpretation and persistence: 10/10 passed.
-- Chrome UI: 11 passed, 0 failed, 0 skipped, 0 flaky.
+- Domain: 66/66 passed; 218 transitions replayed through SQL with snapshot and relational projection checks.
+- PostgreSQL constraints and transactions (PGlite): 15/15 passed.
+- Voice interpretation and persistence: 15/15 passed.
+- ElevenLabs adapter with mocked HTTP: 5/5 passed.
+- Chrome UI: 18 passed, 0 failed, 0 skipped, 0 flaky.
+
+Separate reports cover [73 labelled transcript evaluations](EVALS.md) and [DeepEval multi-turn checks](CONVERSATION-EVALS.md). DeepEval uses actual UI-produced turns with mocked speech, with paired good/bad metric calibration tests. Optional model judging and real-audio metrics have not run.
 
 ## Capture and escalation scoring
 
@@ -50,6 +53,6 @@ This scoring subset uses 25 labelled initial-call fixtures. Retry, correction, c
 
 ## Verification boundaries
 
-The dedicated hosted Supabase project has the migration and eight fictional seed shipments. SQL smoke checks verified the seed, RLS on all 12 tables, and service-only mutation privileges. Server-to-Supabase reads and coordinator membership were verified after local credential setup. An authenticated browser voice save to hosted Supabase has not been exercised. Browser tests use local mode with an explicitly simulated identity.
+The dedicated hosted Supabase project has both migrations and eight fictional seed shipments. SQL smoke checks verified the seed, RLS on all 12 tables, and service-only mutation privileges. Server-to-Supabase reads and coordinator membership were verified after local credential setup. An authenticated browser voice save to hosted Supabase has not been exercised. Browser tests use local mode with an explicitly simulated identity.
 
-Browser voice uses Web Speech APIs. Automated speech tests use controlled API doubles; actual microphone recognition and audible playback still require a user trial in a supported browser. No real calls, LLM extraction, external notifications, deployment, or production-readiness assessment occurred. Real-call connection rate: not applicable.
+ElevenLabs supplies natural agent speech; browser speech synthesis is an explicitly selected fallback. The real ElevenLabs key successfully listed voices and generated a Bella MP3 preview on 7 November 2026. Browser speech recognition supplies input. Automated speech tests use controlled API doubles; actual microphone recognition and audible playback still require a user trial in a supported browser. No real calls, LLM extraction, external notifications, deployment, or production-readiness assessment occurred. Real-call connection rate: not applicable.

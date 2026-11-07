@@ -1,12 +1,24 @@
 import {captureFixtures} from './fixtures.js';
-import {test,after} from 'node:test';
+import {test,before,after} from 'node:test';
+import {persistenceContract} from './persistence-contract.js';
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
-import {seed,transition,interpret,localActor,latestEta,openIssue,zoned,RC,type State,type Action,type Ending} from '../src/domain.js';
+import {seed,transition,interpret as interpretCore,localActor,latestEta,openIssue,zoned,RC,type State,type Action,type Ending} from '../src/domain.js';
 let serial=0;
-const command=(s:State,a:Record<string,unknown>)=>transition(s,{requestId:`test-${++serial}`,...a} as Action,localActor);
+let contract:Awaited<ReturnType<typeof persistenceContract>>;
+let transitions:{before:State;after:State}[]=[];
+before(async()=>{contract=await persistenceContract();});
+const command=(s:State,a:Record<string,unknown>)=>{const next=transition(s,{requestId:`test-${++serial}`,...a} as Action,localActor);transitions.push({before:s,after:next});return next;};
 const results:{id:string;name:string;passed:boolean;error?:string}[]=[];
-function check(id:string,name:string,fn:()=>void){test(id+' '+name,()=>{try{fn();results.push({id,name,passed:true});}catch(e){results.push({id,name,passed:false,error:String(e)});throw e;}});}
+function check(id:string,name:string,fn:()=>void){test(id+' '+name,async()=>{transitions=[];try{fn();for(const item of transitions)await contract.verify(item.before,item.after);results.push({id,name,passed:true});}catch(e){results.push({id,name,passed:false,error:String(e)});throw e;}});}
+function interpret(...args:Parameters<typeof interpretCore>){
+ const result=interpretCore(...args);let state=seed();state.clock=args[4]||RC;
+ Object.assign(state.shipments[0],args[3]);
+ state=command(state,{type:'request',shipmentId:state.shipments[0].id});
+ state=command(state,{type:'event',attemptId:state.attempts[0].id,payload:{ending:args[0],text:args[1],clarification:args[2]}});
+ assert.equal(state.reports[0].instant,result.instant);assert.equal(state.reports[0].capture,result.capture);
+ assert.deepEqual(state.escalations[0]?.reasons.map(r=>r.reason)||[],result.reasons);return result;
+}
 const sh=seed().shipments[0];
 const complete='November 11, 2026 at 3:30 PM Central Time';
 const cases=captureFixtures;
@@ -50,4 +62,8 @@ check('F4','pre-check edit audited',()=>{const s=command(seed(),{type:'edit',shi
 check('F5','post-check edit blocked',()=>assert.throws(()=>command(start(),{type:'edit',shipmentId:sh.id,fields,reason:'Changed'}),/locked/));
 check('F6','retirement preserves and reserves',()=>{assert.throws(()=>command(start(),{type:'retire',shipmentId:sh.id,reason:'Mistake'}),/active/);let s=command(end(start()),{type:'retire',shipmentId:sh.id,reason:'Mistake'});assert.ok(s.shipments[0].retiredAt);assert.throws(()=>command(s,{type:'request',shipmentId:sh.id}),/Retired/);assert.throws(()=>command(s,{type:'create',fields:{...fields,reference:sh.reference}}),/reserved/);});
 check('AUTH1','viewer cannot mutate',()=>assert.throws(()=>transition(seed(),{type:'request',requestId:'viewer',shipmentId:sh.id},{id:'viewer',name:'Viewer',role:'viewer'}),/Read-only/));
-after(async()=>{await mkdir('validation',{recursive:true});await writeFile('validation/domain-results.json',JSON.stringify({mode:'simulated',generatedAt:new Date().toISOString(),tests:results},null,2));});
+check('META1','request, attempt, retirement and event provenance',()=>{let s=end(start());assert.equal(s.checks[0].requestedBy,localActor.id);assert.ok(s.checks[0].requestedAt);assert.equal(s.attempts[0].attemptNumber,1);assert.ok(s.audit.some(a=>a.actorType==='simulated_carrier'));assert.ok(s.audit.some(a=>a.actorType==='agent'));s=command(s,{type:'retire',shipmentId:sh.id,reason:'Done'});assert.equal(s.shipments[0].retiredBy,localActor.id);});
+check('META2','suppression links to the issue and duplicate receipt has a payload fingerprint',()=>{let s=end(start(undefined,'refused'));assert.equal(s.suppressionEvents[0].escalationId,s.escalations[0].id);s=command(s,{type:'event',attemptId:s.attempts[0].id,providerEventId:s.events[0].providerEventId,payload:{ending:'refused',text:'repeat'}});assert.ok((s.audit.at(-1)?.details as any).payloadHash);});
+check('TIME1','clock advance automatically expires every overdue attempt',()=>{let s=command(seed({timeoutSeconds:30}),{type:'request',shipmentId:sh.id});s=command(s,{type:'request',shipmentId:'shipment-2'});s=command(s,{type:'advance_clock',seconds:31});assert.equal(s.attempts.filter(a=>a.status==='in_progress').length,0);assert.ok(s.attempts.every(a=>a.timedOut&&a.outcome==='dropped'));assert.equal(s.escalations.length,2);assert.ok(s.checks.every(c=>c.retryPending));});
+check('TIME2','configured timeout does not expire before its limit',()=>{const s=command(command(seed({timeoutSeconds:60}),{type:'request',shipmentId:sh.id}),{type:'advance_clock',seconds:20});assert.equal(s.attempts[0].status,'in_progress');assert.throws(()=>seed({timeoutSeconds:0}),/timeout/);});
+after(async()=>{await mkdir('validation',{recursive:true});await writeFile('validation/domain-results.json',JSON.stringify({mode:'simulated',generatedAt:new Date().toISOString(),tests:results,persistedTransitions:contract.count()},null,2));await contract.close();});
