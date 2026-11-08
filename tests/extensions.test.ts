@@ -104,3 +104,17 @@ test('recording metadata persists, expired playback is denied and cleanup remove
  const directory=await mkdtemp(path.join(tmpdir(),'regenesys-audio-'));const {store,db}=await localStore();
  try{const state=await store.dispatch(voiceAction,localActor),record=metadata(state.attempts[0],'audio/webm','microphone_only',1000),storage=await localAudio(directory);await storage.put(record.id,Buffer.from([0x1a,0x45,0xdf,0xa3,0]),record.mime);await store.dispatch({type:'attach_audio',requestId:'recording',recording:record},localActor);const persisted=await store.read();assert.equal(findPlayable(persisted,record.id,2000).id,record.id);assert.throws(()=>findPlayable(persisted,record.id,1000+RETENTION_MS),/expired/);assert.equal(await purgeAudio(storage,persisted,1000+RETENTION_MS),1);await assert.rejects(storage.get(record.id));assert.equal(persisted.audit.at(-1)?.action,'conversation_audio_saved');}finally{await db.close();await rm(directory,{recursive:true,force:true});}
 });
+
+test('might-get delay screenshot fills clear route fields and retains the full uncertain note',()=>{
+ const r=extractShipment('shipment reference would be RG 1054 and origin is Alaska destination is Houston and be might get 30 minutes late',seed().contacts);
+ assert.deepEqual(r.warnings,[]);assert.deepEqual(r.fields,{note:'be might get 30 minutes late',reference:'RG-1054',origin:'Alaska',destination:'Houston'});
+ for(const note of ['might get 30 minutes late','might not get 30 minutes late','could arrive thirty minutes late','we might get 30 minutes late']){
+  const parsed=extractShipment('Reference RG 1054 origin Alaska destination Houston and '+note,seed().contacts);
+  assert.equal(parsed.fields.destination,'Houston');assert.equal(parsed.fields.note,note);assert.deepEqual(parsed.warnings,[]);
+ }
+});
+test('uncertainty affects only its labelled field while a leading qualifier remains global',()=>{
+ const r=extractShipment('Reference RG 1054. Origin maybe Alaska. Destination Houston.',seed().contacts);
+ assert.equal(r.fields.reference,'RG-1054');assert.equal(r.fields.origin,undefined);assert.equal(r.fields.destination,'Houston');assert.deepEqual(r.warnings,['Origin unchanged: this field was uncertain. Confirm it manually.']);
+ assert.deepEqual(extractShipment('Maybe reference RG 1054 origin Alaska destination Houston',seed().contacts).fields,{});
+});

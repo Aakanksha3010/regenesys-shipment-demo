@@ -103,3 +103,12 @@ Read-only inspection of the user's open Chrome draft found the first recognized 
 Capture now uses continuous recognition with a 1.8-second final-result pause before ending, plus Finish speaking and existing cancellation/time limits. Dictation uses the same pause tolerance. Sending a typed reply cancels an unfinished microphone turn before coordinator speech. One bounded extra timezone clarification handles "same time zone as yours"; it never assumes the agent's timezone.
 
 A separate regression prevents a conflicting relative/calendar date from silently rolling into next year. The seeded demo clock is November 10: "tomorrow" and "November 9" conflict under that clock. With a November 8 test clock, the exact November 9 / 5 PM sentence plus explicit Central Time resolves correctly. These are controlled tests, not proof of live ASR accuracy. The user's unsaved draft was inspected, not saved or refreshed.
+
+
+## Shipment dictation: uncertain delay must not block a clear route
+
+The exact screenshot sentence "shipment reference would be RG 1054 and origin is Alaska destination is Houston and be might get 30 minutes late" previously split only the duration into a note, leaving "might get" in the destination. The global uncertainty check then skipped all route fields. The parser now preserves the complete delay clause, including the recognizer's wording and uncertainty, and scopes uncertain labelled details to their own field. A leading qualifier such as "Maybe origin ..." remains conservative.
+
+Expected draft: reference RG-1054, origin Alaska, destination Houston, note "be might get 30 minutes late". It does not infer a corrected pronoun or a confirmed delay/ETA. Existing values remain unchanged when their replacement is uncertain, and review is still required before save.
+
+Validation: 21/21 related code/database tests, 6/6 entry browser checks, TypeScript and production build passed. The frontend was rebuilt while retaining the old assets. No server restart, user-draft refresh, or hosted save was performed. Reload when ready to receive the fix. GitHub synchronization remains blocked by the previously reported credential problem.

@@ -4,7 +4,7 @@ import {normalizeSpeech,uncertainSpeech} from './voice-language';
 export type EntryFields={reference:string;contactId:string;origin:string;destination:string;windowStart:string;windowEnd:string;windowTz:string;scenarioId:string;note:string;reason:string};
 // A bounded clause boundary, not a general location or intent model. Preserve
 // uncertainty/negation verbatim in notes; never turn a duration into an ETA.
-const delayClause=/\b(?:(?:the\s+)?(?:shipment|delivery|truck|driver|we|it)\s+(?=[^.;\n]{0,100}\b(?:delay(?:ed)?|late|broke down|breakdown)\b)|(?:could|may|might|will|would)\s+be\s+(?=[^.;\n]{0,60}\b(?:delayed|late)\b)|(?:\d+|one|two|three|four|five|six|ten|fifteen|thirty)\s+(?:minutes?|hours?|days?)\s+(?:late|delayed)\b)/i;
+const delayClause=/\b(?:(?:the\s+)?(?:shipment|delivery|truck|driver|we|it)\s+(?=[^.;\n]{0,100}\b(?:delay(?:ed)?|late|broke down|breakdown)\b)|(?:be\s+)?(?:could|may|might|will|would)\s+(?:not\s+)?(?:be|get|arrive|run)\s+(?=[^.;\n]{0,60}\b(?:delayed|late)\b)|(?:\d+|one|two|three|four|five|six|ten|fifteen|thirty)\s+(?:minutes?|hours?|days?)\s+(?:late|delayed)\b)/i;
 export function extractShipment(text:string,contacts:{id:string;name:string}[]):{fields:Partial<EntryFields>;warnings:string[]}{
  const fields:Partial<EntryFields>={},warnings:string[]=[];
  const normalized=text
@@ -30,7 +30,11 @@ export function extractShipment(text:string,contacts:{id:string;name:string}[]):
  if(values.note)notes.push(values.note);
  if(notes.length){const note=[...new Set(notes)].join('\n');if(note.length<=1000)fields.note=note;else warnings.push('The additional description is too long. Shorten it to 1,000 characters before applying it.');}
  delete values.note;
- if(uncertainSpeech([prefix,...Object.values(values)].join(' ')))return {fields,warnings:[...warnings,'The description contains uncertain field details. Enter or confirm those fields manually.']};
+ if(uncertainSpeech(prefix))return {fields,warnings:[...warnings,'The description contains uncertain field details. Enter or confirm those fields manually.']};
+ // Uncertainty in one labelled field must not block unrelated clear fields.
+ for(const key of Object.keys(values))if(uncertainSpeech(values[key])){
+  delete values[key];warnings.push(`${key[0].toUpperCase()+key.slice(1)} unchanged: this field was uncertain. Confirm it manually.`);
+ }
  for(const key of Object.keys(values))values[key]=normalizeSpeech(values[key]).replace(/\bp\.?m\.?/gi,'PM').replace(/\ba\.?m\.?/gi,'AM');
  for(const key of ['reference','origin','destination'] as const)if(values[key])fields[key]=key==='reference'?values[key].replace(/\bR\s*G\s*[- ]?\s*(\d+)\b/i,'RG-$1'):values[key];
  if(values.carrier){const found=contacts.filter(c=>c.name.toLowerCase()===values.carrier.toLowerCase());if(found.length===1)fields.contactId=found[0].id;else warnings.push('Carrier was not an exact match. Choose the carrier from the list.');}
