@@ -18,7 +18,7 @@ The localhost URL is available only on the machine running the app. A reviewer c
 3. Run a no-answer/retry case and a wrong-number case. Show immediate escalation, retry cap and contact suppression.
 4. Choose Talk with Bella. Say “3 PM IST”, then “November eleventh, 2026”. Only the date should be requested; IST is explicitly defined as India Standard Time.
 5. Repeat with “expect the shipment to arrive at 3:00 p.m.”, then “There is a 30-minute delay”. Bella retains the time, offers human help, and does not manufacture 3:30 PM or a missing date.
-6. Say “I already told you, this is frustrating”. Hear empathy and a human-help offer. Accept the simulated handoff, open the coordinator desk, explicitly join and send a practice reply. Return to the caller screen to respond. You play both roles; no external person joins.
+6. Say “I already told you, this is frustrating”. Hear empathy and a human-help offer. Accept the simulated handoff, open the coordinator desk, and start the automatic scripted coordinator. Speak or type as the caller and receive a reply. Say “that’s all” to finish, then return to review and save. Manual mode is available; no external person joins.
 7. Show the separate coordinator review and save the fictional result. Caller-facing speech does not discuss transcripts, saving or backend issues.
 
 ## Verified
@@ -84,3 +84,22 @@ Conversation details are collapsed by default. A concise outcome explains the fo
 The user returned and authorized continuing on 8 November. The app was rebuilt and started; HTTP 200 and served asset index-Dd4ciqxj.js were verified, including the targeted clarification, additional-description field, collapsed conversation details and human-team forwarding action. Supabase mode and HTTP 401 for unsigned state reads were also verified. Live acceptance remains pending. GitHub pushing is blocked by unavailable saved credentials; the application changes are committed locally.
 
 Validation for this follow-up: 123 code/database tests and 82 labelled transcript cases passed; 35 deterministic conversation checks passed across 12 conversations. Chrome reported 32 passes plus one flaky case that passed its recorded retry (a detached-element timeout). An earlier run also encountered ERR_NETWORK_IO_SUSPENDED while loading the dashboard. These interruptions are retained as limitations, not reported as a completely clean first-pass run. Both new 5 AM browser regressions and the delay-note save/refresh test passed. No paid model judge or new live audio-quality result is claimed.
+
+
+## Automatic practice coordinator — activated 8 November
+
+The previous desk expected one tester to play both roles, so caller speech appeared as a coordinator message and received no reply. The default is now automatic scripted intake with caller-labelled spoken/typed turns, generic Bella replies, explicit finish, cancellation and written replies when playback fails. Manual roleplay remains optional. No general-purpose LLM or real human connection is claimed. The microphone uses a deliberate Speak caller response action for each turn. Only generic allowlisted prompts reach ElevenLabs.
+
+Reviewed handoff caller messages can add delay/refusal/wrong-number evidence; coordinator scripts cannot. These messages never establish a new ETA or resolve the issue. All writes still require review and save. The screenshot parser also accepts plural shipment-reference labels and flags an obvious fragment such as “used in” without guessing Houston.
+
+Validation: 129/129 code/database tests; 82/82 labelled transcript evals; 47/47 local conversation checks across 16 conversations; TypeScript and production build passed. The 30-case voice/entry browser run passed. After final coordinator wording changes, all 25 voice cases passed again; the added microphone-cancellation case also passed (31 distinct targeted browser cases). An earlier disclosure-wording regression was corrected before these successful runs. Browser audio/recognition were mocked, not real microphone accuracy measurements. Paid model judging was not run.
+
+The local production server was restarted with user approval and serves index-DWgMWZu0.js. GitHub synchronization remains blocked by unavailable saved authentication; this change is local until that is restored.
+
+### Live speech-capture follow-up
+
+Read-only inspection of the user's open Chrome draft found the first recognized sentence stopped at "expected to arrive but tomorrow that is night"; the time appeared only in the follow-up "5:00 p.m. same time zone". The reported full spoken sentence included "tomorrow, that is ninth November at 5 PM". These are distinct evidence: intended speech versus the text actually captured.
+
+Capture now uses continuous recognition with a 1.8-second final-result pause before ending, plus Finish speaking and existing cancellation/time limits. Dictation uses the same pause tolerance. Sending a typed reply cancels an unfinished microphone turn before coordinator speech. One bounded extra timezone clarification handles "same time zone as yours"; it never assumes the agent's timezone.
+
+A separate regression prevents a conflicting relative/calendar date from silently rolling into next year. The seeded demo clock is November 10: "tomorrow" and "November 9" conflict under that clock. With a November 8 test clock, the exact November 9 / 5 PM sentence plus explicit Central Time resolves correctly. These are controlled tests, not proof of live ASR accuracy. The user's unsaved draft was inspected, not saved or refreshed.

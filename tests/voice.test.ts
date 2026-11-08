@@ -132,3 +132,38 @@ test('caller prompts stay shipment-focused and never expose coordinator review o
  assert.equal(classifyVoiceIntent("I don't need a human").humanRequested,false);
  assert.equal(interpretVoice('No delay. November 11, 2026 at 3 PM Central time',undefined,sh).delay,false);
 });
+
+test('scripted coordinator acknowledges delay, keeps caller role and ends without confirming delivery',async()=>{
+ const {coordinatorReply}=await import('../src/coordinator-script.js');
+ assert.equal(coordinatorReply('we would be 30 minutes late could you review the delivery',[]).prompt,'coordinator_delay');
+ assert.equal(coordinatorReply('We are not late',[]).prompt,'coordinator_note');
+ assert.equal(coordinatorReply('Traffic is slow',['we would be 30 minutes late']).prompt,'coordinator_note');
+ assert.equal(coordinatorReply('Please approve a new delivery time',[]).prompt,'coordinator_limit');
+ assert.equal(coordinatorReply('I need a real person',[]).prompt,'coordinator_limit');
+ assert.equal(coordinatorReply('huh',[]).prompt,'coordinator_unclear');
+ assert.equal(coordinatorReply("that's all",[]).ended,true);
+ assert.equal(coordinatorReply('one more update',Array(8).fill('update')).ended,true);
+ const session={status:'ended',interaction:'automatic',messages:[{role:'caller',text:'We would be 30 minutes late'},{role:'coordinator',text:voicePrompts.coordinator_delay,source:'scripted'}]};
+ const state=transition(seed(),{...action,text:'I need a human coordinator',handoffChoice:'accepted',handoffSession:session},localActor);
+ assert.equal(state.reports[0].instant,null);assert.equal(state.reports[0].delay,true);assert.equal(state.escalations[0].status,'open');assert.ok(state.escalations[0].reasons.some(r=>r.reason==='delay_reported'));
+ const saved=(state.audit.at(-1)!.details as any).handoffSession;
+ assert.equal(saved.interaction,'automatic');assert.equal(saved.messages[1].source,'scripted');
+});
+
+test('handoff caller evidence flags refusal or delay without treating coordinator scripts as facts',()=>{
+ const base={...action,text:'I need a human coordinator',handoffChoice:'accepted'};
+ const save=(messages:any[])=>transition(seed(),{...base,handoffSession:{status:'ended',interaction:'automatic',messages}},localActor);
+ const scripted=save([{role:'coordinator',source:'scripted',text:voicePrompts.coordinator_delay},{role:'caller',text:'We are not late'}]);
+ assert.equal(scripted.reports[0].delay,false);assert.ok(!scripted.escalations[0].reasons.some(r=>r.reason==='delay_reported'));
+ const refused=save([{role:'caller',text:'Do not call again'}]);assert.equal(refused.contacts[0].suppressed,true);assert.equal(refused.reports[0].instant,null);assert.equal(refused.attempts[0].outcome,'refused');
+ const completeLooking=save([{role:'caller',text:'November 11, 2026 at 3 PM Central time'}]);assert.equal(completeLooking.reports[0].instant,null);assert.equal(completeLooking.escalations[0].status,'open');
+ assert.throws(()=>save([{role:'caller',source:'scripted',text:'fake'}]),/Invalid handoff source/);
+});
+
+test('live ninth-November 5 PM wording preserves the clock time and does not invent a next-year ETA',()=>{
+ const first="we're expected to arrive by tomorrow, that is ninth November at 5 PM.";
+ assert.equal(spokenEtaDetails(first).time,'5 PM');assert.equal(voiceClarification(first),'ask_timezone');
+ const missingZone=interpretVoice(first,'5 PM, same time zone as yours.',sh);assert.equal(missingZone.instant,null);assert.equal(missingZone.delay,false);
+ const conflictingDemoDate=interpretVoice(first,'5 PM, same time zone as yours.; Central time',sh);assert.equal(conflictingDemoDate.instant,null);assert.ok(conflictingDemoDate.reasons.includes('range_or_conflict'));assert.ok(!conflictingDemoDate.reasons.includes('eta_after_window'));
+ const matchingClock=interpretVoice(first,'Central time',sh,'2026-11-08T15:00:00Z');assert.equal(matchingClock.instant,'2026-11-09T23:00:00Z');
+});

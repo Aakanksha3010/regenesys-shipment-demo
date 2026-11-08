@@ -40,6 +40,12 @@ function parse(text:string,clock:string):{instant:string|null;tz?:string;date?:s
     if(iso) date=Temporal.PlainDate.from(iso[1]);
     else if(dm){ const month=months.indexOf(dm[1])+1;date=Temporal.PlainDate.from({year:dm[3]?Number(dm[3]):today.year,month,day:Number(dm[2])},{overflow:'reject'}); if(!dm[3]&&Temporal.PlainDate.compare(date,today)<0)date=date.add({years:1}); }
     else date= /\btomorrow\b/.test(lower)?today.add({days:1}):today;
+    // A calendar date and a relative day must agree. Do not silently roll a
+    // past month/day into next year when the caller also said "tomorrow".
+    if((dm||iso)&&/\btoday\b|\btomorrow\b/.test(lower)){
+      const relative=/\btomorrow\b/.test(lower)?today.add({days:1}):today;
+      if(!date.equals(relative))return {instant:null,tz,completeness:'conflict',kind:'range_or_conflict'};
+    }
     const hour=Number(tm[1]), minute=Number(tm[2]||0); if(hour<1||hour>12||minute>59)throw Error('time');
     const time=Temporal.PlainTime.from({hour:hour%12+(/^p/i.test(tm[3])?12:0),minute});
     const instant=date.toPlainDateTime(time).toZonedDateTime(tz,{disambiguation:'reject'}).toInstant().toString();
@@ -81,6 +87,17 @@ export function interpretVoice(text:string,clarification:string|undefined,shipme
  return result;
 }
 export type Scenario={id:string;label:string;description:string;steps:{ending:Ending;text:string;clarification?:string}[]};
+// Only caller messages contribute evidence. Scripted replies are never carrier facts.
+// Later handoff details may flag a problem, but never establish a new ETA.
+export function withHandoffNotes(result:Result,notes:string[]):Result {
+ if(!Array.isArray(notes)||notes.length>20||notes.some(n=>typeof n!=='string'||n.length>2000))throw Error('Invalid handoff caller notes.');
+ if(!notes.length)return result;
+ const r={...result,reasons:[...result.reasons],raw:result.raw+'\n'+notes.map(n=>'Handoff caller: '+n).join('\n')};
+ if(notes.some(hasDelayEvidence)){r.delay=true;r.assessment='delay';if(!r.reasons.includes('delay_reported'))r.reasons.push('delay_reported');}
+ const ending=notes.map(voiceEnding).find(e=>e==='wrong_number'||e==='refused');
+ if(ending){r.outcome=ending as Outcome;r.instant=null;r.capture='uncaptured';if(!r.reasons.includes(ending))r.reasons.push(ending);}
+ return r;
+}
 const ontime='November 11, 2026 at 3:30 PM Central Time';
 export const scenarios:Scenario[]=[
 {id:'on_time',label:'On-time ETA',description:'Complete date, time and timezone.',steps:[{ending:'completed',text:ontime}]},
@@ -125,18 +142,20 @@ export function transition(input:State,a:Action,actor:Actor,settle=true):State {
   const text=requireText(a.text,'Reviewed carrier answer',4000);
   const clarification=a.clarification?requireText(a.clarification,'Clarification',2000):undefined;
   if(a.heard!==undefined&&(typeof a.heard!=='string'||a.heard.length>6000))throw Error('Invalid original transcript.');
-  let handoffSession:unknown;
+  let handoffSession:unknown;let handoffCallerNotes:string[]=[];
   if(a.handoffSession!==undefined){
-   const h=a.handoffSession as {status?:unknown;messages?:unknown};
+   const h=a.handoffSession as {status?:unknown;messages?:unknown;interaction?:unknown};
    if(!h||a.handoffChoice!=='accepted'||!['waiting','joined','ended'].includes(String(h.status))||!Array.isArray(h.messages)||h.messages.length>20)throw Error('Invalid simulated handoff.');
    if(h.status==='waiting'&&h.messages.length)throw Error('Join the simulated handoff before replying.');
-   handoffSession={status:h.status,mode:'simulated_only',messages:h.messages.map(m=>{if(!m||!['coordinator','caller'].includes(m.role))throw Error('Invalid handoff role.');return {role:m.role,text:requireText(m.text,'Handoff reply',2000)};})};
+   if(h.interaction!==undefined&&!['automatic','manual'].includes(String(h.interaction)))throw Error('Invalid handoff interaction.');
+   handoffSession={interaction:h.interaction,status:h.status,mode:'simulated_only',messages:h.messages.map(m=>{if(!m||!['coordinator','caller'].includes(m.role))throw Error('Invalid handoff role.');if(m.source!==undefined&&(m.source!=='scripted'||m.role!=='coordinator'))throw Error('Invalid handoff source.');return {role:m.role,text:requireText(m.text,'Handoff reply',2000),...(m.source==='scripted'?{source:'scripted'}:{})};})};
+   handoffCallerNotes=h.messages.filter(m=>m.role==='caller').map(m=>m.text);
   }
   // Start and finish are persisted together: abandoning a draft leaves no stuck check.
   const started=transition(input,{type:'request',shipmentId:a.shipmentId,requestId:a.requestId+':start'},actor);
   const attempt=started.attempts.at(-1)!;
   attempt.inputMethod=a.inputMethod as Attempt['inputMethod'];
-  const ended=transition(started,{type:'event',attemptId:attempt.id,requestId:a.requestId+':end',payload:{ending:voiceEnding(text+' '+(clarification||'')),text,clarification,voiceDemo:true}},actor);
+  const ended=transition(started,{type:'event',attemptId:attempt.id,requestId:a.requestId+':end',payload:{ending:voiceEnding(text+' '+(clarification||'')),text,clarification,voiceDemo:true,handoffCallerNotes}},actor);
   ended.audit.push({id:'voice-review-'+a.requestId,entityId:attempt.id,action:'voice_demo_reviewed',details:{inputMethod:a.inputMethod,handoffChoice:a.handoffChoice==='accepted'||a.handoffChoice==='declined'?a.handoffChoice:undefined,handoffMode:'simulated_only',handoffSession,heard:a.heard||null,reviewedText:text,clarification:clarification||null},at:ended.clock,actorId:actor.id,actorName:actor.name,actorType:'human'});
   ended.requests.push(a.requestId);ended.version=input.version+1;return ended;
  }
@@ -192,7 +211,7 @@ export function transition(input:State,a:Action,actor:Actor,settle=true):State {
   const payload=a.type==='event'?a.payload as typeof step:a.type==='timeout'?{ending:'dropped' as Ending,text:'Simulation timed out.'}:step;
   if(!payload||!['completed','dropped','voicemail','no_answer','refused','wrong_number'].includes(payload.ending)||typeof payload.text!=='string'||payload.text.length>8000)throw Error('Invalid simulated event.');
   if(a.type==='timeout'&&Date.parse(now)-Date.parse(at.startedAt)<timeoutSeconds(s)*1000)throw Error('Attempt has not reached the configured simulated timeout.');
-  const r=('voiceDemo' in payload&&payload.voiceDemo===true)?interpretVoice(payload.text,payload.clarification,sh,at.startedAt):interpret(payload.ending,payload.text,payload.clarification,sh,at.startedAt);
+  const r=('voiceDemo' in payload&&payload.voiceDemo===true)?withHandoffNotes(interpretVoice(payload.text,payload.clarification,sh,at.startedAt),'handoffCallerNotes' in payload?payload.handoffCallerNotes as string[]:[]):interpret(payload.ending,payload.text,payload.clarification,sh,at.startedAt);
   s.audit.push({id:id('carrier-event'),entityId:at.id,action:'carrier_response_received',actorId:'simulated-carrier',actorName:'Simulated carrier',actorType:'simulated_carrier',at:now,details:{providerEventId,payloadHash:fingerprint(payload)}});
   s.audit.push({id:id('interpretation'),entityId:at.id,action:'eta_interpreted',actorId:'demo-agent',actorName:'Demo agent',actorType:'agent',at:now,details:{outcome:r.outcome,capture:r.capture,assessment:r.assessment,reasons:r.reasons,voiceIntent:r.voiceIntent,frustrated:r.frustrated}});
   const corrected=s.reports.some(r=>r.shipmentId===sh.id&&r.source==='human_correction'&&r.recordedAt>at.startedAt);

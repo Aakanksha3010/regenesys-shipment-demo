@@ -39,3 +39,10 @@ test('provider bounds request bursts and concurrent generation',async()=>{
  await service.list();const a=service.speak('intro','demoVoice'),b=service.speak('preview','demoVoice');
  await assert.rejects(service.speak('clarification','demoVoice'),/wait a moment/);release();await Promise.all([a,b]);
 });
+
+test('coordinator speech uses generic allowed text without caller details',async()=>{
+ const bodies:string[]=[];
+ const service=createVoiceService('test-only',async(url,init)=>{if(String(url).includes('/voices'))return Response.json(voices);bodies.push(String(init?.body));return new Response('audio',{headers:{'Content-Type':'audio/mpeg'}});});
+ for(const prompt of ['coordinator_intro','coordinator_delay','coordinator_note','coordinator_unclear','coordinator_limit','coordinator_end'] as const){await service.speak(prompt,'demoVoice');assert.equal(JSON.parse(bodies.at(-1)!).text,voicePrompts[prompt]);}
+ await assert.rejects(service.speak('we would be 30 minutes late could you review the delivery','demoVoice'),/supported agent prompt/);
+});

@@ -1,9 +1,9 @@
 # Bella conversation evaluations
 
-Generated 2026-11-08T09:51:53.329456+00:00.
+Generated 2026-11-08T11:50:45.932646+00:00.
 
-DeepEval 4.3.3: 35/35 local contract checks across 12 browser conversations.
-13 non-applicable metric checks excluded; 2 records without a caller turn excluded.
+DeepEval 4.3.3: 47/47 local contract checks across 16 browser conversations.
+17 non-applicable metric checks excluded; 3 records without a caller turn excluded.
 
 React conversation outputs, mocked speech recognition and synthesis; no real audio.
 
@@ -50,3 +50,15 @@ These deterministic regression checks do not establish general conversational in
 | conflicting spoken times remain uncaptured after unsuccessful clarification | Caller-facing language | PASS |
 | conflicting spoken times remain uncaptured after unsuccessful clarification | Retain supplied slots | PASS |
 | conflicting spoken times remain uncaptured after unsuccessful clarification | Truthful simulated handoff | PASS |
+| automatic scripted coordinator intake | Caller-facing language | PASS |
+| automatic scripted coordinator intake | Empathy and human help | PASS |
+| automatic scripted coordinator intake | Truthful simulated handoff | PASS |
+| leaving a scripted coordinator stops audio and retains the unsaved draft | Caller-facing language | PASS |
+| leaving a scripted coordinator stops audio and retains the unsaved draft | Empathy and human help | PASS |
+| leaving a scripted coordinator stops audio and retains the unsaved draft | Truthful simulated handoff | PASS |
+| live ninth-November utterance keeps 5 PM and repairs same-timezone wording once | Caller-facing language | PASS |
+| live ninth-November utterance keeps 5 PM and repairs same-timezone wording once | Retain supplied slots | PASS |
+| live ninth-November utterance keeps 5 PM and repairs same-timezone wording once | Truthful simulated handoff | PASS |
+| sending a typed caller reply cancels an unfinished microphone turn before coordinator audio | Caller-facing language | PASS |
+| sending a typed caller reply cancels an unfinished microphone turn before coordinator audio | Empathy and human help | PASS |
+| sending a typed caller reply cancels an unfinished microphone turn before coordinator audio | Truthful simulated handoff | PASS |

@@ -34,6 +34,16 @@ test('spoken delay detail is separated from destination and preserves uncertaint
  const r=extractShipment('Origin Alaska. Destination Houston and shipment could be 30 minutes delayed. Additional description: driver is waiting for a repair.',seed().contacts);
  assert.equal(r.fields.destination,'Houston');assert.equal(r.fields.note,'shipment could be 30 minutes delayed\ndriver is waiting for a repair');
 });
+test('plural reference label does not leak an s and an unclear spoken destination is not guessed',()=>{
+ const r=extractShipment('take me to shipment references NG 1054 origin is Alaska destination is used in we could be 30 minutes late',seed().contacts);
+ assert.equal(r.fields.reference,'NG 1054');assert.equal(r.fields.origin,'Alaska');assert.equal(r.fields.destination,undefined);assert.equal(r.fields.note,'we could be 30 minutes late');assert.deepEqual(r.warnings,['Destination unchanged: "used in" was not a clear place name. Say or type the location before saving.']);
+});
+test('labels require whole words and reference aliases share duplicate detection',()=>{
+ for(const label of ['Reference','References','Shipment reference','Shipment references'])assert.equal(extractShipment(label+' NG 1054',seed().contacts).fields.reference,'NG 1054');
+ assert.equal(extractShipment('References NG 1054. Reference NG 1055.',seed().contacts).fields.reference,undefined);
+ assert.equal(extractShipment('Referenceable words are not fields.',seed().contacts).fields.reference,undefined);
+ assert.equal(extractShipment('Origin Reading. Destination Houston.',seed().contacts).fields.origin,'Reading');
+});
 test('additional description supports note-only dictation without guessing route fields',()=>{
  assert.deepEqual(extractShipment('The shipment might be five hours late',seed().contacts).fields,{note:'The shipment might be five hours late'});
  assert.deepEqual(extractShipment('Additional description: Maybe delayed. Note: Call the coordinator.',seed().contacts).fields,{note:'Maybe delayed\nCall the coordinator'});

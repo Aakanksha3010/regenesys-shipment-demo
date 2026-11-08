@@ -30,7 +30,7 @@ The app retains reviewed transcript text and the original recognized text for au
 
 ## Interactive handoff
 
-Say “We are five hours late” and accept the simulated handoff. During/after hold music, choose **Open coordinator desk**. Review the shipment and conversation context, then **Join practice conversation**. Type or dictate a coordinator reply and send the practice reply. **Back to caller screen** shows that reply and allows a caller response. End the practice conversation from the coordinator screen, then review and save. You play both roles. No real telephone transfer or external participant is connected.
+Say “We are five hours late” and accept the simulated handoff. After hold music, choose **Open coordinator desk**, then **Start practice coordinator**. Automatic scripted mode keeps you in the caller role. Enable microphone use and click **Speak caller response** for each turn, or type and send a caller response. The practice coordinator replies aloud and in writing. Say “that’s all” or use **End practice conversation**, then **Back to caller screen** to review and save. Manual mode remains available before starting if you want to play both roles. No real telephone transfer or external participant is connected. Later caller-reported delays enter the human-team queue on save; scripted replies never confirm an ETA or resolve an issue.
 
 ## Voice-assisted shipment entry
 
@@ -45,3 +45,5 @@ Before starting a conversation, separately consent to recording. The microphone 
 **Ask** in the header opens searchable guides. The bell opens **What's new**, and **Help** provides the full guide. These are written product instructions, not a live support channel.
 
 Each reviewer should create their own account, confirm their email if required, and receive access from the owner. They share the same Regenesys workspace using their own credentials. The localhost app is not remotely hosted; a public app URL and Auth redirect settings are required before a remote reviewer can use it on another machine. Actual reviewer signup, access assignment and hosted save/refresh must be checked before claiming that handoff complete.
+
+Voice capture tolerates short pauses; use **Finish speaking** to end your turn deliberately. "Same time zone as yours" triggers one request for an explicit arrival timezone. Today/tomorrow follow the displayed demo clock, not the computer clock. Conflicting relative and calendar dates remain unconfirmed.

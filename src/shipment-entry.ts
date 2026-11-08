@@ -12,16 +12,21 @@ export function extractShipment(text:string,contacts:{id:string;name:string}[]):
   .replace(/\bwindows?\s+(?:end|ended|ends)\b/gi,'window end')
   .replace(/\bwindow and(?=\s+it would be)/gi,'window end')
   .replace(/\bwindows?\s+time\s*zone\b/gi,'timezone');
- const labels='shipment reference|reference|carrier|origin|destination|delivery date|window start|window end|time zone|timezone|practice scenario|practice time|additional description|shipment note|notes?';
- const matches=[...normalized.matchAll(new RegExp('\\b('+labels+')\\s*(?:is\\b|:)?\\s*([\\s\\S]*?)(?=\\b(?:'+labels+')\\b|$)','gi'))];
+ const labels='shipment references?|references?|carrier|origin|destination|delivery date|window start|window end|time zone|timezone|practice scenario|practice time|additional description|shipment note|notes?';
+ const matches=[...normalized.matchAll(new RegExp('\\b('+labels+')\\b\\s*(?:is\\b|:)?\\s*([\\s\\S]*?)(?=\\b(?:'+labels+')\\b|$)','gi'))];
  const values:Record<string,string>={},duplicates=new Set<string>();
- for(const match of matches){const key=match[1].toLowerCase().replace('shipment reference','reference').replace('time zone','timezone').replace(/^(?:additional description|shipment note|notes)$/,'note');const value=match[2].trim().replace(/^(?:(?:it )?(?:would be|will be|is)|on)\s+/i,'').replace(/(?:[.;,]+|\s+and)\s*$/,'').trim();if(key==='note'&&values.note){values.note+='\n'+value;continue;}if(key in values)duplicates.add(key);values[key]=value;}
+ for(const match of matches){const key=match[1].toLowerCase().replace(/^(?:shipment )?references?$/,'reference').replace('time zone','timezone').replace(/^(?:additional description|shipment note|notes)$/,'note');const value=match[2].trim().replace(/^(?:(?:it )?(?:would be|will be|is)|on)\s+/i,'').replace(/(?:[.;,]+|\s+and)\s*$/,'').trim();if(key==='note'&&values.note){values.note+='\n'+value;continue;}if(key in values)duplicates.add(key);values[key]=value;}
  for(const key of duplicates){delete values[key];warnings.push(`More than one ${key} was heard. Choose the correct value manually.`);}
  const notes:string[]=[];
  let prefix=normalized.slice(0,matches[0]?.index??normalized.length);
  function separateDelay(value:string){const clause=value.match(delayClause);if(!clause)return value;notes.push(value.slice(clause.index).trim().replace(/[.;,]+$/,''));return value.slice(0,clause.index).replace(/(?:[.;,]+|\s+and)\s*$/,'').trim();}
  prefix=separateDelay(prefix);
  for(const key of ['origin','destination'])if(values[key])values[key]=separateDelay(values[key]);
+ // Reject obvious non-location fragments without guessing what the recognizer
+ // meant. This is deliberately not a city dictionary or geographic validation.
+ for(const key of ['origin','destination'])if(values[key]&&/^(?:used in|use in|unknown|unclear|not sure|same as (?:before|above))$/i.test(values[key])){
+  warnings.push(`${key[0].toUpperCase()+key.slice(1)} unchanged: "${values[key]}" was not a clear place name. Say or type the location before saving.`);delete values[key];
+ }
  if(values.note)notes.push(values.note);
  if(notes.length){const note=[...new Set(notes)].join('\n');if(note.length<=1000)fields.note=note;else warnings.push('The additional description is too long. Shorten it to 1,000 characters before applying it.');}
  delete values.note;

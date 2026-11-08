@@ -165,7 +165,7 @@ test('interactive simulated handoff joins only on coordinator action and persist
  await expect(panel.getByText('Waiting for coordinator · simulated',{exact:true})).toBeVisible();
  expect((await (await request.get('/api/state')).json()).state.audit).toHaveLength(0);
  await panel.getByRole('button',{name:'Open coordinator desk'}).click();await expect(panel.getByText('Carrier reported a delay.',{exact:true})).toBeVisible();
- await expect(panel.getByLabel('Coordinator reply')).not.toBeVisible();await panel.getByRole('button',{name:'Join practice conversation'}).click();
+ await panel.getByLabel('Practice mode').selectOption('manual');await expect(panel.getByLabel('Coordinator reply')).not.toBeVisible();await panel.getByRole('button',{name:'Join practice conversation'}).click();
  await panel.getByLabel('Coordinator reply').fill('I can help review the delay. What happened?');await panel.getByRole('button',{name:'Send practice reply'}).click();
  await panel.getByRole('button',{name:'Back to caller screen'}).click();await expect(panel.getByText('I can help review the delay. What happened?',{exact:true})).toBeVisible();
  await panel.getByLabel('Caller message').fill('The truck needs a repair.');await panel.getByRole('button',{name:'Send caller message'}).click();
@@ -184,4 +184,71 @@ test('consented synthetic microphone recording saves privately and plays after r
  const response=await request.get('/api/recordings/'+audio.id);expect(response.ok()).toBe(true);expect(response.headers()['cache-control']).toContain('no-store');expect((await response.body()).length).toBeGreaterThan(20);
  await page.reload();await page.getByRole('button',{name:'RG-1041',exact:true}).click();await page.getByRole('button',{name:'Load recording'}).click();await expect(page.locator('audio')).toBeVisible();await expect.poll(()=>page.locator('audio').evaluate((a:HTMLAudioElement)=>a.readyState)).toBeGreaterThanOrEqual(2);
  const forged=await request.post('/api/actions',{data:{type:'attach_audio',requestId:'forged',recording:audio}});expect(forged.status()).toBe(400);
+});
+
+test('automatic coordinator answers spoken caller updates and ends with a reviewed handoff',async({page,request})=>{
+ await mockSpeech(page,['I need a human coordinator','yes','we would be 30 minutes late could you review the delivery']);
+ const panel=await open(page,false);await panel.getByLabel('Agent audio').selectOption('browser');await panel.getByRole('checkbox').first().check();await panel.getByRole('button',{name:'Start conversation'}).click();
+ await expect(panel.getByText('Waiting for coordinator · simulated',{exact:true})).toBeVisible();await panel.getByRole('button',{name:'Open coordinator desk'}).click();
+ await expect(panel.getByLabel('Practice mode')).toHaveValue('automatic');await panel.getByRole('button',{name:'Start practice coordinator'}).click();
+ await expect(panel.getByText('Your turn · speak or type a caller response below.',{exact:true})).toBeVisible();
+ await panel.getByRole('checkbox').check();await panel.getByRole('button',{name:'Speak caller response',exact:true}).click();
+ await expect(panel.locator('.handoff-messages li').filter({hasText:'Caller · simulated'})).toContainText('we would be 30 minutes late');
+ await expect(panel.locator('.handoff-messages li').last()).toContainText('Thanks for letting me know about the delay.');
+ await expect(panel.getByText('Your turn · speak or type a caller response below.',{exact:true})).toBeVisible();
+ expect((await page.evaluate(()=>(window as any).__spokenPrompts)).at(-1)).toContain('What caused the delay');
+ expect((await (await request.get('/api/state')).json()).state.attempts).toHaveLength(0);
+ await panel.getByLabel('Your response as caller').fill('Traffic is slow');await panel.getByRole('button',{name:'Send caller response',exact:true}).click();
+ await expect(panel.getByText('Your turn · speak or type a caller response below.',{exact:true})).toBeVisible();
+ await panel.getByLabel('Your response as caller').fill("that's all");await panel.getByRole('button',{name:'Send caller response',exact:true}).click();
+ await expect(panel.getByText('Practice conversation ended. Return to the caller screen to review and save.',{exact:true})).toBeVisible();await expect(panel.getByLabel('Your response as caller')).toHaveCount(0);
+ await panel.getByRole('button',{name:'Back to caller screen'}).click();await expect(panel.getByLabel('Caller message',{exact:true})).toHaveCount(0);
+ await expect(panel.getByRole('button',{name:'Save and forward to human team'})).toBeDisabled();await panel.getByRole('checkbox').last().check();await panel.getByRole('button',{name:'Save and forward to human team'}).click();await expect(panel).not.toBeVisible();
+ const state=(await (await request.get('/api/state')).json()).state;const handoff=state.audit.at(-1).details.handoffSession;
+ expect(handoff.interaction).toBe('automatic');expect(handoff.status).toBe('ended');expect(handoff.messages).toHaveLength(7);expect(handoff.messages[1].role).toBe('caller');expect(handoff.messages[2].source).toBe('scripted');expect(state.reports[0].instant).toBeNull();expect(state.reports[0].delay).toBe(true);expect(state.escalations[0].reasons.map((r:any)=>r.reason)).toContain('delay_reported');expect(state.escalations[0].status).toBe('open');
+ conversations.push({name:'automatic scripted coordinator intake',evidence:'reviewed handoff messages from the browser test; speech APIs mocked',turns:handoff.messages.map((m:any)=>({role:m.role==='coordinator'?'assistant':'user',content:m.text}))});
+ await page.reload();expect((await (await request.get('/api/state')).json()).state.audit.at(-1).details.handoffSession).toEqual(handoff);
+});
+
+test('leaving a scripted coordinator stops audio and retains the unsaved draft',async({page,request})=>{
+ await mockSpeech(page,['Truck broke down','yes']);const panel=await open(page,false);await panel.getByLabel('Agent audio').selectOption('browser');await panel.getByRole('checkbox').first().check();await panel.getByRole('button',{name:'Start conversation'}).click();await expect(panel.getByText('Waiting for coordinator · simulated',{exact:true})).toBeVisible();await panel.getByRole('button',{name:'Open coordinator desk'}).click();
+ await page.evaluate(()=>{(window as any).__cancelled=false;Object.defineProperty(window,'speechSynthesis',{value:{getVoices:()=>[],cancel:()=>{(window as any).__cancelled=true;},speak:()=>{(window as any).__cancelled=false;}},configurable:true});});
+ await panel.getByRole('button',{name:'Start practice coordinator'}).click();await expect(panel.getByText('Practice coordinator speaking · wait to reply',{exact:true})).toBeVisible();await expect(panel.getByRole('button',{name:'Speak caller response'})).toBeDisabled();
+ await panel.getByRole('button',{name:'Back to caller screen'}).click();expect(await page.evaluate(()=>(window as any).__cancelled)).toBe(true);expect((await (await request.get('/api/state')).json()).state.attempts).toHaveLength(0);
+ await panel.getByRole('button',{name:'Open coordinator desk'}).click();await expect(panel.locator('.handoff-messages li')).toHaveCount(1);await expect(panel.getByText('Your turn · speak or type a caller response below.',{exact:true})).toBeVisible();
+});
+
+test('live ninth-November utterance keeps 5 PM and repairs same-timezone wording once',async({page,request})=>{
+ await mockSpeech(page,["we're expected to arrive by tomorrow, that is ninth November at 5 PM.",'5 PM, same time zone as yours.','Central time','No thanks']);
+ const panel=await open(page,false);await panel.getByLabel('Agent audio').selectOption('browser');await panel.getByRole('checkbox').first().check();await panel.getByRole('button',{name:'Start conversation'}).click();
+ await expect(panel.getByText('Understood. Thanks for the update.',{exact:true})).toBeVisible();
+ const spoken=await page.evaluate(()=>(window as any).__spokenPrompts);expect(spoken[1]).toBe('Got the date and time. Which time zone is that?');expect(spoken[2]).toContain('Please name the arrival time zone explicitly');expect(spoken[2]).not.toMatch(/what time|AM or PM/i);
+ await expect(panel.getByText('The arrival details contain a range or conflicting values.',{exact:true})).toBeVisible();await expect(panel.getByText('The reported estimate falls after the delivery window.',{exact:true})).toHaveCount(0);
+ expect((await (await request.get('/api/state')).json()).state.attempts).toHaveLength(0);
+});
+
+test('speech capture retains the time spoken after a pause before asking for only the zone',async({page})=>{
+ await mockSpeech(page,[]);
+ await page.addInitScript(()=>{
+  let turn=0;
+  class Recognition {
+   continuous=false;onresult:any;onend:any;onerror:any;aborted=false;
+   start(){const n=turn++;const emit=(parts:string[])=>this.onresult?.({results:parts.map(transcript=>({isFinal:true,0:{transcript}}))});
+    if(n===0){emit(["we're expected to arrive by tomorrow"]);if(!this.continuous){this.onend?.();return;}setTimeout(()=>{if(!this.aborted)emit(["we're expected to arrive by tomorrow",'that is eleventh November at 5 PM']);},300);}
+    else {emit(['Central time']);this.onend?.();}
+   }
+   stop(){this.onend?.();}abort(){this.aborted=true;}
+  }
+  Object.defineProperty(window,'SpeechRecognition',{value:Recognition,configurable:true});
+ });
+ const panel=await open(page,false);await panel.getByLabel('Agent audio').selectOption('browser');await panel.getByRole('checkbox').first().check();await panel.getByRole('button',{name:'Start conversation'}).click();
+ await expect(panel.getByText("Thanks for the update. That's all I need.",{exact:true})).toBeVisible();
+ const spoken=await page.evaluate(()=>(window as any).__spokenPrompts);expect(spoken[1]).toBe('Got the date and time. Which time zone is that?');
+ await panel.getByText('Conversation details (optional)',{exact:true}).click();await expect(panel.getByLabel('Carrier answer')).toContainText('eleventh November at 5 PM');await expect(panel.getByText('Arrival estimate ready',{exact:true})).toBeVisible();
+});
+
+test('sending a typed caller reply cancels an unfinished microphone turn before coordinator audio',async({page})=>{
+ await mockSpeech(page,['Truck broke down','yes']);const panel=await open(page,false);await panel.getByLabel('Agent audio').selectOption('browser');await panel.getByRole('checkbox').first().check();await panel.getByRole('button',{name:'Start conversation'}).click();await expect(panel.getByText('Waiting for coordinator · simulated',{exact:true})).toBeVisible();await panel.getByRole('button',{name:'Open coordinator desk'}).click();await panel.getByRole('button',{name:'Start practice coordinator'}).click();await expect(panel.getByText('Your turn · speak or type a caller response below.',{exact:true})).toBeVisible();
+ await page.evaluate(()=>{(window as any).__micAborted=false;class Recognition{onend:any;start(){}stop(){this.onend?.();}abort(){(window as any).__micAborted=true;}}Object.defineProperty(window,'SpeechRecognition',{value:Recognition,configurable:true});});
+ await panel.getByRole('checkbox').check();await panel.getByRole('button',{name:'Speak caller response'}).click();await expect(panel.getByText('Listening…',{exact:true})).toBeVisible();await panel.getByLabel('Your response as caller').fill('Traffic is slow');await panel.getByRole('button',{name:'Send caller response'}).click();await expect(panel.getByText('Listening…',{exact:true})).toHaveCount(0);expect(await page.evaluate(()=>(window as any).__micAborted)).toBe(true);await expect(panel.locator('.handoff-messages li').filter({hasText:'Caller · simulated'})).toHaveCount(1);
 });

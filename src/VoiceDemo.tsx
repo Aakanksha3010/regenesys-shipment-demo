@@ -1,6 +1,6 @@
 import {useEffect,useRef,useState} from 'react';
 import {Mic,Square,Volume2,Check,AlertTriangle} from 'lucide-react';
-import {interpretVoice,type Shipment,type Action} from './domain';
+import {interpretVoice,withHandoffNotes,type Shipment,type Action} from './domain';
 import {voicePrompts,type VoicePrompt,type VoiceOptions} from './voice-prompts';
 import {voiceClarification,callerReply,spokenEtaDetails} from './voice-language';
 import {playHoldMusic} from './hold-music';
@@ -23,6 +23,7 @@ export function VoiceDemo({shipment,clock,version,busy,onSave,loadVoices,generat
   const [sampleOnly,setSampleOnly]=useState(false);
   const [asked,setAsked]=useState(false),[usedMic,setUsedMic]=useState(false),[interim,setInterim]=useState('');
   const recognizer=useRef<Recognition|null>(null),alive=useRef(true),timer=useRef<ReturnType<typeof setTimeout>|null>(null);
+  const quietTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
   const speechTimer=useRef<ReturnType<typeof setTimeout>|null>(null),generation=useRef(0),saving=useRef(false);
   const requestId=useRef(crypto.randomUUID());
   const [options,setOptions]=useState<VoiceOptions|null>(null),[voiceId,setVoiceId]=useState(''),[output,setOutput]=useState('elevenlabs');
@@ -35,7 +36,7 @@ export function VoiceDemo({shipment,clock,version,busy,onSave,loadVoices,generat
   const openedVersion=useRef(version);
   const SpeechRecognition=(window as SpeechWindow).SpeechRecognition||(window as SpeechWindow).webkitSpeechRecognition;
   const supportsSpeech='speechSynthesis' in window;
-  const preview=interpretVoice(text,clarification||undefined,shipment,clock);
+  const preview=withHandoffNotes(interpretVoice(text,clarification||undefined,shipment,clock),handoff?.messages.filter(m=>m.role==='caller').map(m=>m.text)||[]);
   const known=spokenEtaDetails(text+' '+clarification);
   const reasonLabels:Record<string,string>={delay_reported:'A delay was reported.',eta_after_window:'The reported estimate falls after the delivery window.',ambiguous:'The arrival details are still uncertain.',incomplete_eta:'The arrival date, time or time zone is still incomplete.',range_or_conflict:'The arrival details contain a range or conflicting values.',human_requested:'The caller asked for a human agent.',caller_frustrated:'The caller needs help from the team.',wrong_number:'The number does not belong to the intended contact.',refused:'The contact declined to provide an update.',unanswered:'No response was received.',voicemail:'The call reached voicemail.',dropped:'The conversation ended before the details could be established.'};
   const active=starting||phase==='speaking'||phase==='listening'||phase==='holding';
@@ -49,6 +50,7 @@ export function VoiceDemo({shipment,clock,version,busy,onSave,loadVoices,generat
     generation.current++;
     if(timer.current)clearTimeout(timer.current);
     if(speechTimer.current)clearTimeout(speechTimer.current);
+    if(quietTimer.current)clearTimeout(quietTimer.current);
     audioRequest.current?.abort();audioRequest.current=null;
     holdRequest.current?.abort();holdRequest.current=null;
     if(audio.current){audio.current.onended=null;audio.current.onerror=null;audio.current.pause();audio.current=null;}
@@ -100,12 +102,12 @@ export function VoiceDemo({shipment,clock,version,busy,onSave,loadVoices,generat
   }
   function acceptHandoff(){setHandoffChoice('accepted');setReviewed(false);speak('hold_demo',()=>{void hold();});}
 
-  function listen(followup=false,first=text,handoff=false){
+  function listen(followup=false,first=text,handoff=false,previousClarification=''){
     if(!consent||!SpeechRecognition){setError('Enable microphone use in a supported browser, or type a demo answer.');return;}
     stop();setSampleOnly(false);setError('');setInterim('');setReviewed(false);setPhase('listening');
     const r=new SpeechRecognition();recognizer.current=r;
     const turn=generation.current;let finalText='',failed=false;
-    r.lang='en-US';r.continuous=false;r.interimResults=true;
+    r.lang='en-US';r.continuous=true;r.interimResults=true;
     r.onresult=event=>{
       if(turn!==generation.current||!alive.current)return;
       let interimText='';finalText='';
@@ -114,6 +116,8 @@ export function VoiceDemo({shipment,clock,version,busy,onSave,loadVoices,generat
         if(result.isFinal)finalText+=result[0].transcript+' ';else interimText+=result[0].transcript+' ';
       }
       setInterim((finalText+interimText).trim());
+      if(quietTimer.current)clearTimeout(quietTimer.current);
+      if(finalText.trim()&&!interimText.trim())quietTimer.current=setTimeout(()=>{if(turn===generation.current&&recognizer.current===r)r.stop();},1800);
     };
     r.onerror=event=>{
       if(turn!==generation.current||!alive.current)return;
@@ -123,6 +127,7 @@ export function VoiceDemo({shipment,clock,version,busy,onSave,loadVoices,generat
     r.onend=()=>{
       if(turn!==generation.current||!alive.current)return;
       if(timer.current)clearTimeout(timer.current);
+      if(quietTimer.current)clearTimeout(quietTimer.current);
       recognizer.current=null;setInterim('');setPhase('review');
       const answer=finalText.trim();
       if(failed||!answer){if(!failed)setError('No speech was detected. Try again or explicitly record no answer.');return;}
@@ -133,8 +138,14 @@ export function VoiceDemo({shipment,clock,version,busy,onSave,loadVoices,generat
         else setQuestion('Handoff response was unclear. No transfer has been attempted. Choose a demo option below.');
         return;
       }
-      if(followup)setClarification(answer);else {setText(answer);setClarification('');}
-      const result=interpretVoice(followup?first:answer,followup?answer:undefined,shipment,clock);
+      const combined=(previousClarification?previousClarification+'; '+answer:answer).slice(0,2000);
+      if(followup)setClarification(combined);else {setText(answer);setClarification('');}
+      const result=interpretVoice(followup?first:answer,followup?combined:undefined,shipment,clock);
+      const details=spokenEtaDetails(first+' '+combined);
+      // One bounded repair for a relative timezone answer; never assume the agent's zone.
+      if(followup&&!previousClarification&&!result.delay&&!result.frustrated&&result.voiceIntent!=='human_request'&&result.capture==='uncaptured'&&details.date&&details.time&&!details.zone&&/\bsame\s+(?:time\s*zone|zone)\b/i.test(answer)){
+        speak('ask_timezone_explicit',()=>listen(true,first,false,combined));return;
+      }
       if(!followup&&!result.delay&&!result.frustrated&&result.voiceIntent!=='human_request'&&result.capture==='uncaptured'&&['ambiguous','eta_incomplete'].includes(result.outcome)){
         setAsked(true);speak(voiceClarification(answer),()=>listen(true,answer));
       }else{
@@ -156,7 +167,7 @@ export function VoiceDemo({shipment,clock,version,busy,onSave,loadVoices,generat
    try{if(recordConsent&&audioHistory){const capture=await startRecording(output==='elevenlabs',()=>{if(alive.current){setRecordingActive(false);setError('Recording reached its five-minute or size limit. You can still review and save the captured audio.');}});if(!alive.current){capture.discard();return;}recording.current=capture;setRecordingActive(true);}if(alive.current){setStarting(false);void speak('intro',()=>listen());}}
    catch(e){if(alive.current)setError((e as Error).message);}finally{if(alive.current)setStarting(false);}
   }
-  if(coordinatorScreen&&handoff)return <div className="voice-demo">{recordingActive&&<p role="status">Microphone recording is still on. Typed replies are saved as text.</p>}<CoordinatorHandoff shipment={shipment} result={preview} transcript={heard||text+(clarification?'\n'+clarification:'')} session={handoff} onChange={session=>{setHandoff(session);setReviewed(false);}} onBack={()=>setCoordinatorScreen(false)}/></div>;
+  if(coordinatorScreen&&handoff)return <div className="voice-demo">{recordingActive&&<p role="status">Microphone recording is still on. Typed replies are saved as text.</p>}<CoordinatorHandoff shipment={shipment} result={preview} transcript={heard||text+(clarification?'\n'+clarification:'')} session={handoff} onChange={session=>{setHandoff(session);setReviewed(false);}} onBack={()=>setCoordinatorScreen(false)} onSpeak={prompt=>{void speak(prompt);}} onStop={()=>{stop();setPhase('review');}} speaking={phase==='speaking'} audioError={error} recordingActive={recordingActive}/></div>;
   return <div className="voice-demo">
     <div className="voice-badge"><Mic size={16}/>Talk with Bella <span className="sim-label">SIMULATED</span></div>
     <p>You play the carrier. The agent asks aloud, listens, and proposes a result. <strong>Nothing is saved until you review it.</strong></p>
@@ -174,16 +185,17 @@ export function VoiceDemo({shipment,clock,version,busy,onSave,loadVoices,generat
     {recording.current&&<button disabled={busy} onClick={()=>{recording.current?.discard();recording.current=null;recorded.current=undefined;setRecordingActive(false);setRecordConsent(false);}}>Discard recording</button>}
     <div className="voice-controls">
       <button className="primary" disabled={busy||active||!consent||!SpeechRecognition||!!text||!canSpeak} onClick={begin}><Mic size={17}/>Start conversation</button>
+      {phase==='listening'&&<button onClick={()=>recognizer.current?.stop()}>Finish speaking</button>}
       {active&&<button onClick={()=>{stop();setPhase('review');setInterim('');}}><Square size={16}/>Stop audio</button>}
     </div>
     <div className={'voice-agent '+(active?'active':'')} aria-live="polite"><span className="voice-orb"><Mic size={25}/></span><div><strong>{phase==='holding'?'Simulated hold music…':phase==='listening'?'Listening to your answer…':phase==='speaking'?(sampleOnly?'Playing sample · microphone off':'Bella speaking · wait to reply'):sampleOnly?'Voice sample finished · microphone off':'Ready · not listening for a reply'}</strong><p>{question||intro}</p>{interim&&<p className="voice-interim">Heard so far: {interim}</p>}</div></div>
     {handoffOffered&&!handoff&&<div className="voice-warning"><strong>Continue with a coordinator</strong><p>In this simulation, you can switch to the coordinator screen, join the conversation and reply. No phone transfer takes place.</p><div className="voice-controls"><button disabled={active||busy||!canSpeak} onClick={acceptHandoff}>Yes · try handoff</button><button disabled={active||busy||!canSpeak} onClick={()=>{setHandoffChoice('declined');speak('handoff_declined');}}>No · end conversation</button></div></div>}
-    {handoff&&<section className="handoff-panel"><strong>{handoff.status==='joined'?'Coordinator joined · simulated':handoff.status==='ended'?'Practice conversation ended':'Waiting for coordinator · simulated'}</strong><p>You can play both sides. Open the coordinator desk to join and respond.</p><button disabled={busy||phase==='speaking'||phase==='listening'} onClick={()=>{stop();setPhase('review');setCoordinatorScreen(true);}}>Open coordinator desk</button>{handoff.messages.length>0&&<ol className="handoff-messages">{handoff.messages.map((m,i)=><li key={i}><strong>{m.role==='coordinator'?'Coordinator':'Caller'} · simulated</strong><p>{m.text}</p></li>)}</ol>}{handoff.status==='joined'&&<><label className="voice-field">Caller message<textarea maxLength={2000} value={callerMessage} onChange={e=>setCallerMessage(e.target.value)}/></label><button disabled={!callerMessage.trim()||handoff.messages.length>=20} onClick={()=>{setHandoff({...handoff,messages:[...handoff.messages,{role:'caller',text:callerMessage.trim()}]});setCallerMessage('');setReviewed(false);}}>Send caller message</button></>}</section>}
+    {handoff&&<section className="handoff-panel"><strong>{handoff.status==='joined'?'Coordinator joined · simulated':handoff.status==='ended'?'Practice conversation ended':'Waiting for coordinator · simulated'}</strong><p>Open the coordinator desk to continue with automatic scripted replies, or choose manual roleplay.</p><button disabled={busy||phase==='speaking'||phase==='listening'} onClick={()=>{stop();setPhase('review');setCoordinatorScreen(true);}}>Open coordinator desk</button>{handoff.messages.length>0&&<ol className="handoff-messages">{handoff.messages.map((m,i)=><li key={i}><strong>{m.role==='coordinator'?'Coordinator':'Caller'} · simulated</strong><p>{m.text}</p></li>)}</ol>}{handoff.status==='joined'&&handoff.interaction!=='automatic'&&<><label className="voice-field">Caller message<textarea maxLength={2000} value={callerMessage} onChange={e=>setCallerMessage(e.target.value)}/></label><button disabled={!callerMessage.trim()||handoff.messages.length>=20} onClick={()=>{setHandoff({...handoff,messages:[...handoff.messages,{role:'caller',text:callerMessage.trim()}]});setCallerMessage('');setReviewed(false);}}>Send caller message</button></>}</section>}
     {error&&<div className="error" role="alert">{error}</div>}
     <details className="voice-details"><summary>Conversation details (optional)</summary><p>Open these details only if you want to type a response or correct what was heard. The conversation is retained in history when you save.</p>
     <label className="voice-field">Carrier answer<textarea aria-label="Carrier answer" rows={3} maxLength={4000} disabled={active||busy} value={text} onChange={e=>edit(e.target.value)} placeholder="For example: November 11, 2026 at three thirty PM Central Time"/></label>
     <div className="voice-controls"><button disabled={busy||active||!consent||!SpeechRecognition||asked} onClick={()=>listen()}>Speak answer</button><button disabled={busy||active||!!text} onClick={()=>{edit('[No response heard]');setPhase('review');}}>Record no answer</button></div>
-    {(asked||needsClarification)&&<div className="voice-followup"><p><strong>One clarification:</strong> {clarificationPrompt}</p><label className="voice-field">Clarification answer<textarea aria-label="Clarification answer" rows={2} maxLength={2000} disabled={active||busy} value={clarification} onChange={e=>{setAsked(true);edit(e.target.value,true);}}/></label><button disabled={busy||active||asked||!SpeechRecognition||!consent||!canSpeak} onClick={()=>{setAsked(true);speak(clarificationId,()=>listen(true));}}>Ask clarification aloud</button></div>}
+    {(asked||needsClarification)&&<div className="voice-followup"><p><strong>Clarification:</strong> {clarificationPrompt}</p><label className="voice-field">Clarification answer<textarea aria-label="Clarification answer" rows={2} maxLength={2000} disabled={active||busy} value={clarification} onChange={e=>{setAsked(true);edit(e.target.value,true);}}/></label><button disabled={busy||active||asked||!SpeechRecognition||!consent||!canSpeak} onClick={()=>{setAsked(true);speak(clarificationId,()=>listen(true));}}>Ask clarification aloud</button></div>}
     </details>
     {text&&<div className={'voice-preview '+(preview.reasons.length?'needs-review':'')} aria-live="polite"><strong>{preview.reasons.length?<><AlertTriangle size={16}/>Ready to forward to our human agent team</>:<><Check size={16}/>Arrival estimate ready</>}</strong><p>{preview.instant?new Intl.DateTimeFormat('en-US',{dateStyle:'medium',timeStyle:'short',timeZone:preview.tz||shipment.windowTz}).format(new Date(preview.instant))+' · '+(preview.tz||shipment.windowTz):'Arrival estimate not yet established.'}</p>{!preview.instant&&(known.date||known.time)&&<p>Details heard: {[known.date,known.time,known.zone].filter(Boolean).join(' · ')}. These details are not yet a complete arrival estimate.</p>}<p>{preview.reasons.length?preview.reasons.map(r=>reasonLabels[r]||r.replaceAll('_',' ')).join(' '):'Carrier-reported estimate in this simulated conversation.'}</p>{!preview.delay&&!preview.reasons.includes('eta_after_window')&&preview.reasons.some(r=>['ambiguous','incomplete_eta','range_or_conflict'].includes(r))&&<p>No delay was reported. The team will help clarify the arrival details.</p>}{['wrong_number','refused'].includes(preview.outcome)&&<p>The fictional contact will be suppressed until a coordinator reviews it.</p>}<small>{preview.reasons.length?'Saving forwards this to the shared human-team queue in this demo.':'Save to keep this estimate in the shipment history.'}</small></div>}
     <label className="voice-consent"><input type="checkbox" checked={reviewed} disabled={!text||active||busy} onChange={e=>setReviewed(e.target.checked)}/><span>I checked the outcome and any practice replies.{recording.current?' Save the consented recording with this conversation.':''}</span></label>
