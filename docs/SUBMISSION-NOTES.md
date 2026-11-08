@@ -1,6 +1,6 @@
 # Regenesys demo submission notes
 
-Prepared 7 November 2026. This is a single-company **simulated shipment coordination demo**, not a live carrier-calling deployment.
+Updated 8 November 2026. This is a single-company **simulated shipment coordination demo**, not a live carrier-calling deployment.
 
 ## Deliverables
 
@@ -34,10 +34,10 @@ The localhost URL is available only on the machine running the app. A reviewer c
 
 | Item | Status / dependency |
 | --- | --- |
-| Repaired conversation with real microphone | User trial pending; verify actual recognition, latency and spoken output |
+| Voice and UI experience | User confirms testing ElevenLabs voice and says UI is fine (8 November); detailed scenario accuracy and timings not supplied |
 | Signed-in hosted reviewed save | Pending; inspect saved rows and attribution, then refresh to confirm persistence |
-| Purva’s own account | Signup UI implemented; she must create/confirm her account, then receive workspace membership. Actual second-account sign-in, shared data and role checks remain |
-| Model-judged DeepEval scores | Optional extension, not run; evaluator model and API key required |
+| Additional user accounts | General signup/sign-in UI implemented; a second account must confirm email and receive approved membership. Actual sign-in, shared data and role checks remain |
+| Model-judged DeepEval scores | Not run; no paid evaluator requested or used. Local deterministic checks and a separately labelled chat review are available |
 | Recorded audio metrics | Not run; permitted recordings, reference transcripts and timings required |
 | Original PRD source transfer | Private source register still records the earlier failed local download; no reconstructed original is presented |
 
@@ -51,7 +51,7 @@ Before wider use, review the pre-existing Supabase helper execution warnings and
 
 ## Follow-up from the real microphone retest
 
-The reported utterance “we'll be arriving five hours late from today's time” exposed a missing hour-duration delay pattern. The follow-up fix recognizes the delay immediately, responds empathetically, and offers only a simulated handoff. Current-clock references and unresolved estimate offsets are not converted into an arrival date/time/timezone. The exact report and its follow-up are regression fixtures; a new microphone trial after this fix is still pending.
+The reported utterance “we'll be arriving five hours late from today's time” exposed a missing hour-duration delay pattern. The follow-up fix recognizes the delay immediately, responds empathetically, and offers only a simulated handoff. Current-clock references and unresolved estimate offsets are not converted into an arrival date/time/timezone. The exact report and its follow-up are regression fixtures; the user subsequently confirmed testing the voice/UI, but did not provide the exact five-hour-delay outcome or saved-state result.
 
 ## Added for the reviewer walkthrough
 
@@ -59,12 +59,16 @@ The reported utterance “we'll be arriving five hours late from today's time”
 - Voice-assisted Add shipment: dictate the labelled fields, fill the form, edit any mistakes, confirm every field, then save. Extraction does not guess missing fields.
 - Interactive simulated coordinator desk: context, transcript, explicit join, editable/dictated replies, caller responses and end state. Review and save persists the exchange in Activity without changing an unconfirmed ETA.
 - Optional consented audio history in a private bucket, with seven-day playback expiry. Synthetic browser capture/playback and hosted storage denial checks passed; real-device mixed audio and signed-in hosted attachment checks remain pending.
-- Purva shares the existing Regenesys workspace through her own approved account. Account creation does not automatically grant membership.
+- Additional users share the existing Regenesys workspace through their own approved accounts. Account creation does not automatically grant membership.
 
-Physical audio deletion runs while the app is running and at startup. An always-on cleanup job is still required for strict seven-day deletion while the local app is offline. The app is not publicly deployed, so Purva cannot open this machine's localhost URL remotely.
+Physical audio deletion runs while the app is running and at startup. An always-on cleanup job is still required for strict seven-day deletion while the local app is offline. The app is not publicly deployed, so a remote reviewer cannot open this machine's localhost URL.
 
 ## Screenshot feedback follow-up
 
 Voice samples now use a non-question greeting and explicit microphone-off labels. The sample cannot start recognition; microphone consent and Start conversation are required. The duplicate Hear agent control was removed. Scripted controls are labelled Test scenarios and explain their purpose separately from Talk with Bella.
 
 Partial shipment dictation no longer clears existing details. Common window label variants and America Chicago are understood; day-first, explicit-year dates can differ across an overnight window. Missing years and ambiguous compact times such as 344 PM are not guessed. The UI lists changed fields and targeted corrections, and still requires review before saving. Consecutive applied dictations remain in the saved source text.
+
+## Current follow-up
+
+See [the 8 November status and focused retest](STATUS-2026-11-08.md). Human-request and frustration prompts now disclose the simulated handoff before acceptance, with regression checks. These source changes have not replaced the user’s served build during active testing. Nothing has been submitted or shared with a reviewer.

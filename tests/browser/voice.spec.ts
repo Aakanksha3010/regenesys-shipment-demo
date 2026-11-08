@@ -107,7 +107,7 @@ test('spoken 3 PM IST asks only for date, retains time and zone, and requires co
 test('frustrated caller gets empathy and accepted demo hold never claims a human connected',async({page,request})=>{
  await mockSpeech(page,['I already told you, this is frustrating','Yes please']);const panel=await open(page);await panel.getByLabel('Agent audio').selectOption('browser');await panel.getByRole('checkbox').first().check();await panel.getByRole('button',{name:'Start conversation'}).click();
  await expect(panel.getByText('Simulated hold music…',{exact:true})).toBeVisible();
- const spoken=await page.evaluate(()=>(window as any).__spokenPrompts);expect(spoken[1]).toContain("I'm sorry this has been frustrating");expect(spoken[2]).toMatch(/a real person won't join/i);
+ const spoken=await page.evaluate(()=>(window as any).__spokenPrompts);expect(spoken[1]).toContain("I'm sorry this has been frustrating");expect(spoken[1]).toContain('simulated handoff');expect(spoken[1]).toContain("a real person won't join");expect(spoken[2]).toMatch(/a real person won't join/i);
  await panel.getByRole('button',{name:'Stop audio'}).click();await expect(panel.getByRole('button',{name:'Save reviewed conversation'})).toBeDisabled();
  expect((await (await request.get('/api/state')).json()).state.checks).toHaveLength(0);
 });
@@ -115,7 +115,7 @@ test('frustrated caller gets empathy and accepted demo hold never claims a human
 test('explicit human request offers help without another ETA question',async({page,request})=>{
  await mockSpeech(page,['I want to speak to a human','No thanks']);const panel=await open(page);await panel.getByLabel('Agent audio').selectOption('browser');await panel.getByRole('checkbox').first().check();await panel.getByRole('button',{name:'Start conversation'}).click();
  await expect(panel.getByText('Understood. Thanks for the update.',{exact:true})).toBeVisible();
- const spoken=await page.evaluate(()=>(window as any).__spokenPrompts);expect(spoken[1]).toContain('human coordinator');expect(spoken[1]).not.toMatch(/date|time zone|arrival time/);
+ const spoken=await page.evaluate(()=>(window as any).__spokenPrompts);expect(spoken[1]).toContain('human coordinator');expect(spoken[1]).toContain('simulated handoff');expect(spoken[1]).toContain("a real person won't join");expect(spoken[1]).not.toMatch(/date|time zone|arrival time/);
  await panel.getByRole('checkbox').last().check();await panel.getByRole('button',{name:'Save reviewed conversation'}).click();await expect(panel).not.toBeVisible();
  const state=(await (await request.get('/api/state')).json()).state;expect(state.escalations[0].reasons.map((r:any)=>r.reason)).toContain('human_requested');expect(state.contacts[0].suppressed).toBe(false);
 });
@@ -132,6 +132,18 @@ test('real retest regression: five hours late immediately offers a simulated han
  const state=(await (await request.get('/api/state')).json()).state;
  expect(state.reports[0].instant).toBeNull();expect(state.reports[0].capture).toBe('uncaptured');expect(state.reports[0].assessment).toBe('delay');
  expect(state.escalations[0].reasons.map((r:any)=>r.reason)).toContain('delay_reported');expect(state.audit.at(-1).details.handoffChoice).toBe('declined');
+});
+
+for(const scenario of [
+ {name:'spoken wrong number suppresses contact only after reviewed save',answers:['Wrong number'],outcome:'wrong_number',reason:'wrong_number',suppressed:true},
+ {name:'spoken refusal suppresses contact only after reviewed save',answers:["I can't share that. Do not call again."],outcome:'refused',reason:'refused',suppressed:true},
+ {name:'conflicting spoken times remain uncaptured after unsuccessful clarification',answers:['November eleventh, 2026 at three PM, actually four PM Central time',"I'm not sure"],outcome:'ambiguous',reason:'ambiguous',suppressed:false},
+])test(scenario.name,async({page,request})=>{
+ await mockSpeech(page,[...scenario.answers]);const panel=await open(page);await panel.getByLabel('Agent audio').selectOption('browser');await panel.getByRole('checkbox').first().check();await panel.getByRole('button',{name:'Start conversation'}).click();
+ await expect(panel.getByText("I don't want to get your arrival details wrong. A human coordinator can help from here.",{exact:true})).toBeVisible();
+ const before=(await (await request.get('/api/state')).json()).state;expect(before.attempts).toHaveLength(0);expect(before.contacts[0].suppressed).toBe(false);
+ await panel.getByRole('checkbox').last().check();await panel.getByRole('button',{name:'Save reviewed conversation'}).click();await expect(panel).not.toBeVisible();
+ const state=(await (await request.get('/api/state')).json()).state;expect(state.attempts).toHaveLength(1);expect(state.attempts[0].outcome).toBe(scenario.outcome);expect(state.reports[0].instant).toBeNull();expect(state.reports[0].capture).toBe('uncaptured');expect(state.contacts[0].suppressed).toBe(scenario.suppressed);expect(state.escalations[0].reasons.map((r:any)=>r.reason)).toContain(scenario.reason);expect(state.checks[0].status).toBe('finished');
 });
 
 test('interactive simulated handoff joins only on coordinator action and persists replies after review',async({page,request})=>{

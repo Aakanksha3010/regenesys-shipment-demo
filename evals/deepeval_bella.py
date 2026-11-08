@@ -63,7 +63,10 @@ def slot_retention(turns):
         time = re.search(r"(?:\d{1,2}(?::\d{2})?|three(?: thirty)?)\s*(?:p\.?m\.?|a\.?m\.?)", user)
         zone = re.search(r"\b(?:ist|central time|eastern time|india standard time)\b", user)
         date = re.search(r"\btomorrow\b|\btoday\b|\bnovember\b", user)
-        if time and re.search(r"what time|including am or pm|time with am or pm", reply):
+        # Explicit corrections/ranges do not supply a single settled time.
+        # Keep date/zone retention checks active; do not exempt the whole turn.
+        conflicting_time = re.search(r"\bactually\b|\bbetween\b", user)
+        if time and not conflicting_time and re.search(r"what time|including am or pm|time with am or pm", reply):
             errors.append("Asked again for an already supplied time/AM-PM.")
         if zone and re.search(r"which time zone|what time zone", reply):
             errors.append("Asked again for a supplied supported timezone.")
@@ -97,6 +100,9 @@ def handoff_truth(turns):
         text = turn.content.lower()
         if re.search(r"you(?:'re| are) (?:now )?connected|human (?:has|is) joined|transfer (?:was )?successful", text):
             errors.append("Claimed an unverified live transfer or pickup.")
+        offer = re.search(r"would you like|shall i|can i (?:help|connect|transfer)", text)
+        if offer and re.search(r"human|coordinator|handoff|transfer", text) and "simulated" not in text:
+            errors.append("Human-help offer omitted the simulation boundary before acceptance.")
         if "hold-music" in text and not ("simulated" in text and "won't join" in text):
             errors.append("Hold preview lacked a clear simulation boundary.")
     return errors

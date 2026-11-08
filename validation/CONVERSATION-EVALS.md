@@ -1,9 +1,9 @@
 # Bella conversation evaluations
 
-Generated 2026-11-07T10:24:24.892205+00:00.
+Generated 2026-11-08T09:26:31.846785+00:00.
 
-DeepEval 4.3.3: 22/22 local contract checks across 7 browser conversations.
-6 non-applicable metric checks excluded; 2 records without a caller turn excluded.
+DeepEval 4.3.3: 29/29 local contract checks across 10 browser conversations.
+11 non-applicable metric checks excluded; 2 records without a caller turn excluded.
 
 React conversation outputs, mocked speech recognition and synthesis; no real audio.
 
@@ -37,3 +37,10 @@ These deterministic regression checks do not establish general conversational in
 | real retest regression: five hours late immediately offers a simulated handoff and preserves unconfirmed ETA | Caller-facing language | PASS |
 | real retest regression: five hours late immediately offers a simulated handoff and preserves unconfirmed ETA | Empathy and human help | PASS |
 | real retest regression: five hours late immediately offers a simulated handoff and preserves unconfirmed ETA | Truthful simulated handoff | PASS |
+| spoken wrong number suppresses contact only after reviewed save | Caller-facing language | PASS |
+| spoken wrong number suppresses contact only after reviewed save | Truthful simulated handoff | PASS |
+| spoken refusal suppresses contact only after reviewed save | Caller-facing language | PASS |
+| spoken refusal suppresses contact only after reviewed save | Truthful simulated handoff | PASS |
+| conflicting spoken times remain uncaptured after unsuccessful clarification | Caller-facing language | PASS |
+| conflicting spoken times remain uncaptured after unsuccessful clarification | Retain supplied slots | PASS |
+| conflicting spoken times remain uncaptured after unsuccessful clarification | Truthful simulated handoff | PASS |

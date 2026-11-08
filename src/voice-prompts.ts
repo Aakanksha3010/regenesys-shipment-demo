@@ -12,8 +12,8 @@ export const voicePrompts = {
   review: "Thanks for the update. That's all I need.",
   escalation: "I don't want to get your arrival details wrong. A human coordinator can help from here.",
   delay_handoff: "I'm sorry you're running late. A human coordinator can help with the delay. Would you like to try the simulated handoff and continue on the coordinator screen?",
-  human_handoff: "Of course. Would you like me to help you reach a human coordinator?",
-  empathy_handoff: "I'm sorry this has been frustrating. You shouldn't have to keep repeating yourself. Would you like to speak with a human coordinator?",
+  human_handoff: "You'd like a human coordinator. This demo offers a simulated handoff where you play both roles; a real person won't join. Would you like to open the coordinator screen?",
+  empathy_handoff: "I'm sorry this has been frustrating. You shouldn't have to keep repeating yourself. Would you like to try the simulated handoff to a human coordinator? You play both roles; a real person won't join.",
   hold_demo: "This is a simulated handoff. You'll hear a short hold-music preview. Open the coordinator screen to play that role and join the conversation. A real person won't join by phone.",
   handoff_declined: "Understood. Thanks for the update.",
 } as const;

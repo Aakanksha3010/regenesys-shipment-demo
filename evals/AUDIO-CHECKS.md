@@ -1,6 +1,6 @@
 # Real audio evaluation
 
-Status: protocol prepared; a real ElevenLabs Bella MP3 generation succeeded on 7 November 2026. The user accepted Bella as warm and natural. The repaired conversation and a complete microphone-to-hosted-save trial remain pending. Automated speech API doubles do not count as real audio results.
+Status: protocol prepared; a real ElevenLabs Bella MP3 generation succeeded on 7 November 2026. The user accepted Bella as warm and natural. On 8 November, the user confirmed testing the ElevenLabs voice and that the UI was fine. No per-scenario recognition results, timings, mixed recording or completed hosted save/refresh were specified; those remain unverified. Automated speech API doubles do not count as real audio results.
 
 ## Procedure
 

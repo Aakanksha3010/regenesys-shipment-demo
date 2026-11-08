@@ -92,7 +92,7 @@ npm run build
 
 `lint` currently runs strict TypeScript static checks, not an ESLint style ruleset. See [DeepEval setup and evidence boundaries](evals/README.md), [conversation evals](validation/CONVERSATION-EVALS.md), [transcript evals](validation/EVALS.md) and the [real audio protocol](evals/AUDIO-CHECKS.md).
 
-The report separates scenario scoring from lifecycle, database and browser tests. Raw local test output is ignored because it may include machine paths. Server-to-Supabase reads and coordinator membership were verified after credential configuration. An authenticated hosted voice save and a real microphone trial remain separate user checks.
+The report separates scenario scoring from lifecycle, database and browser tests. Raw local test output is ignored because it may include machine paths. Server-to-Supabase reads and coordinator membership were verified after credential configuration. On 8 November, the user confirmed testing the ElevenLabs voice and that the UI was fine. A complete authenticated hosted voice save/refresh and mixed-audio playback still need specific acceptance evidence.
 
 `npm run build` creates `dist`; `npm start` serves it on localhost. Deployment and live-provider work require separate configuration and authorization.
 
@@ -100,7 +100,7 @@ The report separates scenario scoring from lifecycle, database and browser tests
 
 The sign-in screen includes **Create an account**. Reviewers use their own credentials and confirm their email when required. Signing up does not grant access: the owner must add the verified Auth user ID to `shipment_demo.members` with the intended role. Never assign access from user-editable profile metadata. Server authorization validates the session and looks up membership on each request. Authorized members share the same Regenesys records; this is one company, not separate per-person data silos. Viewers cannot mutate records or generate speech.
 
-Purva has not yet completed the actual signup, membership assignment and signed-in save/refresh trial. Automated Auth UI responses and authorization checks are controlled tests, not proof that her live account is configured. The app still binds to localhost; GitHub is source hosting, not a remotely accessible application. Public deployment remains separate work.
+A second account has not yet completed the actual signup, membership assignment and signed-in save/refresh trial. Automated Auth UI responses and authorization checks are controlled tests, not proof that a second live account is configured. The app still binds to localhost; GitHub is source hosting, not a remotely accessible application. Public deployment remains separate work.
 
 ## Optional audio history
 

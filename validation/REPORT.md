@@ -1,6 +1,6 @@
 # SIMULATED validation report
 
-Generated 2026-11-07T10:24:25.431Z. Fixture labels test deterministic logic; these are not real-call or market-performance measurements.
+Generated 2026-11-08T09:25:39.224Z. Fixture labels test deterministic logic; these are not real-call or market-performance measurements.
 
 ## Automated checks
 
@@ -9,7 +9,7 @@ Generated 2026-11-07T10:24:25.431Z. Fixture labels test deterministic logic; the
 - PostgreSQL constraints and transactions (PGlite): 15/15 passed.
 - Voice interpretation and persistence: 17/17 passed.
 - ElevenLabs adapter with mocked HTTP: 5/5 passed.
-- Chrome UI: 27 passed, 0 failed, 0 skipped, 0 flaky.
+- Chrome UI: 30 passed, 0 failed, 0 skipped, 0 flaky.
 
 Separate reports cover [labelled transcript evaluations](EVALS.md) and [DeepEval multi-turn checks](CONVERSATION-EVALS.md). DeepEval uses actual UI-produced turns with mocked speech, with paired good/bad metric calibration tests. Optional model judging and real-audio metrics have not run.
 
@@ -54,6 +54,6 @@ This scoring subset uses 25 labelled initial-call fixtures. Retry, correction, c
 
 ## Verification boundaries
 
-The dedicated hosted Supabase project has both migrations and eight fictional seed shipments. SQL smoke checks verified the seed, RLS on all 12 tables, and service-only mutation privileges. Server-to-Supabase reads and coordinator membership were verified after local credential setup. An authenticated browser voice save to hosted Supabase has not been exercised; the existing in-app browser connection failed during this attempt. Purva’s own Auth account and membership acceptance remain pending. Browser tests use local mode with an explicitly simulated identity.
+The dedicated hosted Supabase project has both migrations and eight fictional seed shipments. SQL smoke checks verified the seed, RLS on all 12 tables, and service-only mutation privileges. Server-to-Supabase reads and coordinator membership were verified after local credential setup. An authenticated browser voice save to hosted Supabase has not been exercised; the existing in-app browser connection failed during this attempt. Actual second-account signup, membership and role acceptance remain pending. A read-only hosted check on 8 November found one coordinator member, one scripted attempt and no reviewed voice saves or recording metadata; browser voice persistence therefore remains unverified on the hosted project. Browser tests use local mode with an explicitly simulated identity.
 
-ElevenLabs supplies natural agent speech; browser speech synthesis is an explicitly selected fallback. The real ElevenLabs key successfully listed voices and generated a Bella MP3 preview on 7 November 2026. Browser speech recognition supplies input. Automated speech tests use controlled API doubles; actual microphone recognition and mixed Bella recording still require a user trial in a supported browser. Synthetic browser audio capture, private local save and playback after refresh were verified. The dedicated hosted audio bucket is private; service byte roundtrip and anonymous download denial were verified, and the synthetic test object was removed. Seven-day playback expiry and cleanup are unit-tested; physical deletion depends on the server running. No real calls, LLM extraction, external notifications, deployment, or production-readiness assessment occurred. Real-call connection rate: not applicable.
+ElevenLabs supplies natural agent speech; browser speech synthesis is an explicitly selected fallback. The real ElevenLabs key successfully listed voices and generated a Bella MP3 preview on 7 November 2026. Browser speech recognition supplies input. Automated speech tests use controlled API doubles; the user confirmed testing the ElevenLabs voice and UI on 8 November. Detailed recognition accuracy, mixed Bella recording and a saved/refresh trial still lack specific acceptance results. Synthetic browser audio capture, private local save and playback after refresh were verified. The dedicated hosted audio bucket is private; service byte roundtrip and anonymous download denial were verified, and the synthetic test object was removed. Seven-day playback expiry and cleanup are unit-tested; physical deletion depends on the server running. No real calls, LLM extraction, external notifications, deployment, or production-readiness assessment occurred. Real-call connection rate: not applicable.

@@ -20,6 +20,8 @@ Results are written locally to `validation/CONVERSATION-EVALS.md` and ignored JS
 
 ## Optional model judging
 
+Without an additional model API, exported conversations can also be reviewed in the development chat using a written rubric. See [the seven-conversation chat review](../validation/CHAT-REVIEW.md) for findings and limitations. This is not an independent judge run and does not change the automated LLM-judge status to passed.
+
 The runner also supports `KnowledgeRetentionMetric`, `TurnRelevancyMetric` and a product-specific `ConversationalGEval`. These require a separately configured evaluator model; an ElevenLabs TTS key cannot run them.
 
 ```sh
