@@ -71,4 +71,4 @@ Partial shipment dictation no longer clears existing details. Common window labe
 
 ## Current follow-up
 
-See [the 8 November status and focused retest](STATUS-2026-11-08.md). Human-request and frustration prompts now disclose the simulated handoff before acceptance, with regression checks. These source changes have not replaced the user’s served build during active testing. Nothing has been submitted or shared with a reviewer.
+See [the 8 November status and focused retest](STATUS-2026-11-08.md). Human-request and frustration prompts now disclose the simulated handoff before acceptance, with regression checks. These changes were activated on 8 November after the user confirmed testing was finished; the served asset and sign-in boundary were verified. Nothing has been submitted or shared with a reviewer.
