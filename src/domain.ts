@@ -1,6 +1,6 @@
 import { Temporal } from '@js-temporal/polyfill';
 import {voicePrompts} from './voice-prompts.js';
-import {normalizeSpeech,voiceEnding,uncertainSpeech,hasArrivalWindow,hasDelayEvidence,hasUnresolvedTimeReference,voiceClarification,classifyVoiceIntent} from './voice-language.js';
+import {normalizeSpeech,ambiguousTimeFragment,voiceInput,voiceEnding,uncertainSpeech,hasArrivalWindow,hasDelayEvidence,hasUnresolvedTimeReference,voiceClarification,classifyVoiceIntent} from './voice-language.js';
 
 export type Assessment = 'none'|'on_time'|'early'|'delay';
 export type Outcome = 'eta_captured'|'eta_incomplete'|'ambiguous'|'no_answer'|'voicemail'|'dropped'|'wrong_number'|'refused';
@@ -22,6 +22,7 @@ export function zoned(local:string,tz:string):string { return Temporal.PlainDate
 const months=['january','february','march','april','may','june','july','august','september','october','november','december'];
 function parse(text:string,clock:string):{instant:string|null;tz?:string;date?:string;time?:string;completeness:Report['completeness'];kind:string} {
   const lower=text.toLowerCase();
+  if(ambiguousTimeFragment(text))return {instant:null,completeness:'partial',kind:'ambiguous'};
   if(hasUnresolvedTimeReference(text))return {instant:null,completeness:'partial',kind:'ambiguous'};
   const dates=[...lower.matchAll(new RegExp('('+months.join('|')+')\\s+(\\d{1,2})(?:,?\\s+(\\d{4}))?','g'))].map(m=>m[1]+' '+m[2]);
   const times=[...lower.matchAll(/\b(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)\b/g)].map(m=>m[1]+':'+(m[2]||'00')+m[3][0]);
@@ -72,7 +73,7 @@ export function interpret(ending:Ending,text:string,clarification:string|undefin
 }
 export function interpretVoice(text:string,clarification:string|undefined,shipment:Pick<Shipment,'windowStart'|'windowEnd'>,clock=RC):Result {
  const ending=voiceEnding(text+' '+(clarification||''));
- const normalized=normalizeSpeech(text),followup=clarification?normalizeSpeech(clarification):undefined;
+ const {initial:normalized,followup}=voiceInput(text,clarification);
  const result=interpret(ending,normalized,followup,shipment,clock);
  // Uncertain estimates are never promoted to a precise ETA by normalization.
  const completeClarification=followup&&!hasArrivalWindow(followup)?interpret('completed',followup,undefined,shipment,clock).capture==='captured':false;

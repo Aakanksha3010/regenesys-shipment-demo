@@ -56,3 +56,6 @@ If listening times out, use **Retry microphone** to answer the same question, or
 If the caller says Texas time, explicitly choose Central or Mountain. On handoff, the context panel retains the earlier date/time and explains missing timezone or conflicting dates. The practice coordinator uses that context in its next question. It remains scripted and simulated.
 
 Hosted persistence was verified with the fictional QA-PERSIST-1108 typed practice record on 8 November. Find its open issue in Escalations and its reviewed conversation plus handoff messages in Activity → Voice demo reviewed → View recorded details. Real microphone recording and second-account access remain separate acceptance checks.
+
+
+A phrase such as “six seven PM” is not treated as an exact time. After a timezone reply, Bella retains that zone and can ask one more targeted question for unclear time or a calendar-date conflict. Give one exact time with AM/PM; when the date conflicts with the practice clock, also give the calendar date and year. Repeating “Central Time” does not create a second timezone. Unresolved facts remain unconfirmed and nothing is saved until reviewed.

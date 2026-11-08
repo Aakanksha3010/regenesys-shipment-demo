@@ -179,3 +179,19 @@ test('Texas does not select a timezone; explicit Central and Mountain answers do
  assert.equal(context.time,'6 p.m');assert.ok(context.dates.includes('November 9'));assert.equal(context.prompt,'coordinator_texas');assert.equal(context.zone,undefined);
  const correctedZone=coordinatorContext(first+'\nClarification: Texas time\nClarification: Not sure\nHandoff response: Yes',['Central time'],sh,seed().clock);assert.equal(correctedZone.conflictingDate,true);assert.equal(coordinatorReply('Central time',[],correctedZone).prompt,'coordinator_date');
 });
+
+test('six seven PM stays unclear after repeated Central Time and accepts only an explicit time correction',()=>{
+ const first='we would be expected to arrive tomorrow, that is ninth of November at six seven p.m. and the time zone is Texas';
+ assert.equal(spokenEtaDetails(first).time,undefined);assert.equal(voiceClarification(first),'ask_texas_timezone');
+ for(const clock of ['2026-11-08T15:00:00Z',seed().clock]){
+  const unresolved=interpretVoice(first,'Central Time. Central Time.',sh,clock);
+  assert.equal(unresolved.instant,null);assert.equal(unresolved.capture,'uncaptured');assert.equal(unresolved.delay,false);assert.ok(unresolved.raw.includes('Central Time. Central Time.'));assert.ok(unresolved.raw.includes('six seven p.m.'));
+ }
+ assert.equal(interpretVoice(first,'Central Time. Central Time.; 6 PM',sh,'2026-11-08T15:00:00Z').instant,'2026-11-10T00:00:00Z');
+ assert.equal(interpretVoice(first,'Central Time. Central Time.; 6 PM',sh,seed().clock).instant,null);
+ assert.equal(interpretVoice(first,'Central Time. Central Time.; November 11, 2026 at 4 PM',sh,seed().clock).instant,'2026-11-11T22:00:00Z');
+ for(const time of ['6 7 PM','six seven PM','six 7 PM'])assert.equal(interpretVoice('November 11, 2026 at '+time+' Central Time',undefined,sh).instant,null);
+ assert.equal(interpretVoice('November 11 6 PM Central Time',undefined,sh).instant,'2026-11-12T00:00:00Z');
+ assert.equal(interpretVoice('November 11, 2026 at six thirty PM Central Time',undefined,sh).instant,'2026-11-12T00:30:00Z');
+ assert.equal(interpretVoice('November 11, 2026 at 4 PM Texas','Central Time. Central Time.',sh).instant,'2026-11-11T22:00:00Z');
+});

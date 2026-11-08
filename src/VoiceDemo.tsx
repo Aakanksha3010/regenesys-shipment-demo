@@ -2,7 +2,8 @@ import {useEffect,useRef,useState} from 'react';
 import {Mic,Square,Volume2,Check,AlertTriangle} from 'lucide-react';
 import {interpretVoice,withHandoffNotes,type Shipment,type Action} from './domain';
 import {voicePrompts,type VoicePrompt,type VoiceOptions} from './voice-prompts';
-import {voiceClarification,callerReply,spokenEtaDetails} from './voice-language';
+import {voiceClarification,callerReply,spokenEtaDetails,voiceInput} from './voice-language';
+import {coordinatorContext} from './coordinator-script';
 import {playHoldMusic} from './hold-music';
 import {CoordinatorHandoff,type HandoffSession} from './CoordinatorHandoff';
 import {startRecording,type RecordingDraft} from './recording';
@@ -39,7 +40,7 @@ export function VoiceDemo({shipment,clock,version,busy,onSave,loadVoices,generat
   const SpeechRecognition=(window as SpeechWindow).SpeechRecognition||(window as SpeechWindow).webkitSpeechRecognition;
   const supportsSpeech='speechSynthesis' in window;
   const preview=withHandoffNotes(interpretVoice(text,clarification||undefined,shipment,clock),handoff?.messages.filter(m=>m.role==='caller').map(m=>m.text)||[]);
-  const known=spokenEtaDetails(text+' '+clarification);
+  const known=spokenEtaDetails(voiceInput(text,clarification).combined);
   const reasonLabels:Record<string,string>={delay_reported:'A delay was reported.',eta_after_window:'The reported estimate falls after the delivery window.',ambiguous:'The arrival details are still uncertain.',incomplete_eta:'The arrival date, time or time zone is still incomplete.',range_or_conflict:'The arrival details contain a range or conflicting values.',human_requested:'The caller asked for a human agent.',caller_frustrated:'The caller needs help from the team.',wrong_number:'The number does not belong to the intended contact.',refused:'The contact declined to provide an update.',unanswered:'No response was received.',voicemail:'The call reached voicemail.',dropped:'The conversation ended before the details could be established.'};
   const active=starting||phase==='speaking'||phase==='listening'||phase==='holding';
   const needsClarification=!!text&&!asked&&!preview.delay&&!preview.frustrated&&preview.voiceIntent!=='human_request'&&preview.capture==='uncaptured'&&preview.outcome!=='refused'&&preview.outcome!=='wrong_number'&&preview.outcome!=='voicemail'&&preview.outcome!=='no_answer';
@@ -121,10 +122,17 @@ export function VoiceDemo({shipment,clock,version,busy,onSave,loadVoices,generat
       const combined=(previousClarification?previousClarification+'; '+answer:answer).slice(0,2000);
       if(followup)setClarification(combined);else {setText(answer);setClarification('');}
       const result=interpretVoice(followup?first:answer,followup?combined:undefined,shipment,clock);
-      const details=spokenEtaDetails(first+' '+combined);
+      const merged=voiceInput(first,combined).combined;
+      const details=spokenEtaDetails(merged);
       // One bounded repair for a relative timezone answer; never assume the agent's zone.
       if(followup&&!previousClarification&&!result.delay&&!result.frustrated&&result.voiceIntent!=='human_request'&&result.capture==='uncaptured'&&details.date&&details.time&&!details.zone&&/\bsame\s+(?:time\s*zone|zone)\b|\btexas\b/i.test(answer)){
         askAndListen(/\btexas\b/i.test(answer)?'ask_texas_timezone':'ask_timezone_explicit',{followup:true,first,handoff:false,previousClarification:combined});return;
+      }
+      // One extra targeted repair when the caller supplied a previously
+      // missing zone. Repeated words in that reply are not a conflicting zone.
+      if(followup&&!previousClarification&&!result.delay&&!result.frustrated&&result.voiceIntent!=='human_request'&&result.capture==='uncaptured'&&!spokenEtaDetails(first).zone&&details.zone){
+        const context=coordinatorContext(merged,[],shipment,clock);
+        if(!details.time||context.conflictingDate){askAndListen(voiceClarification(merged,context.conflictingDate),{followup:true,first,handoff:false,previousClarification:combined});return;}
       }
       if(!followup&&!result.delay&&!result.frustrated&&result.voiceIntent!=='human_request'&&result.capture==='uncaptured'&&['ambiguous','eta_incomplete'].includes(result.outcome)){
         setAsked(true);askAndListen(voiceClarification(answer),{followup:true,first:answer,handoff:false,previousClarification:''});

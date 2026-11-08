@@ -1,6 +1,6 @@
 # SIMULATED transcript evaluations
 
-Generated 2026-11-08T12:19:50.195Z. Hand-labelled written inputs test interpretation and state transitions, not speech recognition, real carrier behavior or statistical accuracy.
+Generated 2026-11-08T12:46:25.723Z. Hand-labelled written inputs test interpretation and state transitions, not speech recognition, real carrier behavior or statistical accuracy.
 
 ## Original fixture baseline
 
@@ -16,11 +16,11 @@ Generated 2026-11-08T12:19:50.195Z. Hand-labelled written inputs test interpreta
 
 | Metric | Result |
 | --- | --- |
-| Cases passing every check | 57/57 |
-| Exact captured ETA | 20/20 |
-| False captures | 0/37 |
-| Required escalation coverage | 41/41 |
-| False alerts | 0/16 |
+| Cases passing every check | 59/59 |
+| Exact captured ETA | 21/21 |
+| False captures | 0/38 |
+| Required escalation coverage | 42/42 |
+| False alerts | 0/17 |
 
 ## Case results
 
@@ -108,5 +108,7 @@ Generated 2026-11-08T12:19:50.195Z. Hand-labelled written inputs test interpreta
 | V55 | day-first spoken date | PASS |  |
 | V56 | arrival window cannot become a precise capture | PASS |  |
 | V57 | exact live retest: retain 5 AM and do not label uncertainty as delay | PASS |  |
+| V58 | live six-seven time remains unclear after repeated Central Time | PASS |  |
+| V59 | explicit date and time repair retains earlier Central Time | PASS |  |
 
 The audio evaluation protocol is in evals/AUDIO-CHECKS.md. Real audio and authenticated hosted browser saves remain separate checks. A zero-error result on these fixtures does not establish general language understanding.

@@ -13,23 +13,40 @@ export function normalizeSpeech(text: string): string {
     .replace(/\bi[ .]*s[ .]*t\b/gi,'India Standard Time');
 }
 
+// Adjacent hour-like words are not an exact clock time (e.g. "six seven PM").
+// Mask date tokens first so "November 11 6 PM" is not mistaken for two hours.
+export function ambiguousTimeFragment(text:string):string|undefined {
+ const normalized=normalizeSpeech(text).replace(/\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}(?:,?\s+\d{4})?\b|\b\d{4}-\d{2}-\d{2}\b/gi,m=>' '.repeat(m.length));
+ return normalized.match(/\b(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|[1-9]|1[0-2])\s+(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|[1-9]|1[0-2])\s*(?:a\.?m\.?|p\.?m\.?)\b/i)?.[0];
+}
+export function voiceInput(text:string,clarification?:string){
+ let initial=normalizeSpeech(text);const followup=clarification?normalizeSpeech(clarification):undefined;
+ const ambiguous=ambiguousTimeFragment(initial);
+ const times=followup?[...followup.matchAll(/\b(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)\b/gi)].map(m=>`${m[1]}:${m[2]||'00'}${m[3][0].toLowerCase()}`):[];
+ // A single explicit correction can replace an unclear time; all other facts
+ // and the original audit text remain. A zone-only answer cannot repair time.
+ if(ambiguous&&followup&&!ambiguousTimeFragment(followup)&&new Set(times).size===1&&!uncertainSpeech(followup)&&!hasArrivalWindow(followup))initial=initial.replace(ambiguous,'');
+ return {initial,followup,combined:initial+(followup?' '+followup:'')};
+}
+
 export function spokenEtaDetails(text:string){
  const normalized=normalizeSpeech(text);
  return {
   date:normalized.match(/\b(?:today|tomorrow)\b|\b\d{4}-\d{2}-\d{2}\b|\b(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2}(?:,?\s+\d{4})?\b/i)?.[0],
-  time:normalized.match(/\b(?:[1-9]|1[0-2])(?::[0-5]\d)?\s*(?:a\.?m\.?|p\.?m\.?)\b/i)?.[0],
+  time:ambiguousTimeFragment(normalized)?undefined:normalized.match(/\b(?:[1-9]|1[0-2])(?::[0-5]\d)?\s*(?:a\.?m\.?|p\.?m\.?)\b/i)?.[0],
   zone:normalized.match(/\b(?:central time|ct|eastern time|et|mountain time|mt|india standard time|indian standard time)\b/i)?.[0],
  };
 }
 export const hasArrivalWindow=(text:string)=>/\bwithin\s+(?:\d+|one|two|three|four|five|six|twelve|twenty[- ]four)\s+(?:hours?|days?|minutes?)\b/i.test(text);
 
-export function voiceClarification(text:string):VoicePrompt {
+export function voiceClarification(text:string,dateConflict=false):VoicePrompt {
  if(hasDelayEvidence(text))return 'delay_handoff';
  if(hasUnresolvedTimeReference(text))return 'clarification';
  if(/\bbetween\b|\bactually\b|\bmidnight\b/i.test(text))return 'clarification';
  const {date,time,zone}=spokenEtaDetails(text);
  if(date&&time&&!zone&&(uncertainSpeech(text)||hasArrivalWindow(text)))return 'ask_timezone_uncertain';
- if(date&&time&&!zone&&/\btexas\b/i.test(text))return 'ask_texas_timezone';
+ if(date&&!zone&&/\btexas\b/i.test(text))return 'ask_texas_timezone';
+ if(dateConflict)return time?'ask_calendar_date':'ask_calendar_date_time';
  const missing=[!date?'date':'',!time?'time':'',!zone?'timezone':''].filter(Boolean).join('_');
  const prompts:Record<string,VoicePrompt>={date:'ask_date',time:'ask_time',timezone:'ask_timezone',date_time:'ask_date_time',date_timezone:'ask_date_timezone',time_timezone:'ask_time_timezone'};
  return prompts[missing]||'clarification';

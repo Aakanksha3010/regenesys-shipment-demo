@@ -86,3 +86,16 @@ The screenshot sentence “shipment shipment reference RG 1055 origin from Alask
 Validation: 22/22 related code/database tests, 7/7 Chrome entry/UI tests, TypeScript and isolated production build passed. The browser regression checks both utterances, review-before-save and note persistence after reload. Recognition in these automated tests is text/mocked input, not an acoustic accuracy measurement.
 
 The tested frontend was installed with existing assets retained. HTTP verified index-DR3_ffmj.js is served, and downloaded bytes matched the tested asset. No server restart, user-tab refresh, or hosted data mutation occurred. An already-open tab needs a reload to use the changed parser; its unsaved draft is untouched. GitHub synchronization remains blocked by the existing credential issue.
+
+
+## Bella: ambiguous spoken time after Central Time — 8 November
+
+The supplied live-test transcript was “we would be expected to arrive tomorrow, that is ninth of November at six seven p.m. and the time zone is Texas”, followed by “Central Time. Central Time.” Read-only inspection found no open draft in either accessible demo tab, so the actual browser recognizer output could not be recovered; the supplied text was reproduced directly in parser and mocked-recognition tests.
+
+Reproduction identified two separate issues. The repeated Central Time was already retained as one timezone. The date conflicted with the fixed November 10 practice clock. More seriously, normalization reduced “six seven p.m.” to “six 7 p.m.” and the old parser could choose 7 PM under a matching November 8 clock. Adjacent ambiguous hour tokens now remain uncaptured; neither 6 PM, 7 PM nor 6:07 PM is guessed. The Texas prompt no longer claims the date/time is established. Supplying a missing zone permits one extra targeted repair for the remaining unclear time or conflicting calendar date. A single explicit time correction can replace an ambiguous time while retaining the supplied date/zone and original audit text. If the date remains conflicting or the reply is still unclear, no ETA is confirmed.
+
+Exact regression: first utterance → repeated Central Time → prompt retaining the zone and requesting a calendar date/year plus one clear AM/PM time → November 11, 2026 at 4 PM → reviewed save and reload retains 2026-11-11T22:00:00Z with no escalation. A separate unsuccessful-repair case stays unconfirmed, preserves the original words, and forwards uncertainty without claiming a reported delay. The matching November 8 clock is separately unit-tested to isolate time ambiguity from the date conflict.
+
+Verification: 134/134 code/database tests, 33/33 Chrome voice tests, 84/84 labelled transcript evals, TypeScript and production build passed. Recognition and playback are controlled doubles; no new real microphone accuracy, ElevenLabs audio-quality or paid model-judge result is claimed.
+
+The existing authorized local server restart completed after checking that neither accessible demo tab had an open dialog. No tab was refreshed and no user draft was saved. Existing assets were retained. HTTP 200 serves index-CKXRf7gd.js and unsigned state access returns 401. Reload when ready to use the new dialogue. GitHub synchronization remains blocked by unavailable saved credentials.
