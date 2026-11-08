@@ -3,8 +3,10 @@ import {normalizeSpeech,uncertainSpeech} from './voice-language';
 
 export type EntryFields={reference:string;contactId:string;origin:string;destination:string;windowStart:string;windowEnd:string;windowTz:string;scenarioId:string;note:string;reason:string};
 // A bounded clause boundary, not a general location or intent model. Preserve
-// uncertainty/negation verbatim in notes; never turn a duration into an ETA.
+// uncertainty/negation verbatim in notes; never turn a status or duration into an ETA.
 const delayClause=/\b(?:(?:the\s+)?(?:shipment|delivery|truck|driver|we|it)\s+(?=[^.;\n]{0,100}\b(?:delay(?:ed)?|late|broke down|breakdown)\b)|(?:be\s+)?(?:could|may|might|will|would)\s+(?:not\s+)?(?:be|get|arrive|run)\s+(?=[^.;\n]{0,60}\b(?:delayed|late)\b)|(?:\d+|one|two|three|four|five|six|ten|fifteen|thirty)\s+(?:minutes?|hours?|days?)\s+(?:late|delayed)\b)/i;
+const onTimeClause=/\b(?:(?:the\s+)?(?:shipment|delivery|truck|driver|we|it|i)\s+(?:(?:would|will|could|may|might|should)\s+(?:not\s+)?(?:be|arrive)|(?:are|is|am)(?:\s+not)?(?:\s+(?:arriving|running))?|(?:expect|plan)\s+to\s+(?:be|arrive))\s+(?:not\s+)?on[ -]time|on[ -]time(?=\s*[.;,]?\s*$))/i;
+const trimClauseEnd=(value:string)=>value.replace(/(?:[.;,]+|\s+and)\s*$/i,'').trim().replace(/[.;,]+$/,'').trim();
 export function extractShipment(text:string,contacts:{id:string;name:string}[]):{fields:Partial<EntryFields>;warnings:string[]}{
  const fields:Partial<EntryFields>={},warnings:string[]=[];
  const normalized=text
@@ -19,9 +21,9 @@ export function extractShipment(text:string,contacts:{id:string;name:string}[]):
  for(const key of duplicates){delete values[key];warnings.push(`More than one ${key} was heard. Choose the correct value manually.`);}
  const notes:string[]=[];
  let prefix=normalized.slice(0,matches[0]?.index??normalized.length);
- function separateDelay(value:string){const clause=value.match(delayClause);if(!clause)return value;notes.push(value.slice(clause.index).trim().replace(/[.;,]+$/,''));return value.slice(0,clause.index).replace(/(?:[.;,]+|\s+and)\s*$/,'').trim();}
- prefix=separateDelay(prefix);
- for(const key of ['origin','destination'])if(values[key])values[key]=separateDelay(values[key]);
+ function separateStatus(value:string){const clause=[value.match(delayClause),value.match(onTimeClause)].filter((m):m is RegExpMatchArray=>!!m).sort((a,b)=>a.index!-b.index!)[0];if(!clause)return value;notes.push(value.slice(clause.index).trim().replace(/[.;,]+$/,''));return trimClauseEnd(value.slice(0,clause.index));}
+ prefix=separateStatus(prefix);
+ for(const key of ['origin','destination'])if(values[key])values[key]=separateStatus(values[key]).replace(key==='origin'?/^from\s+/i:/^to\s+/i,'');
  // Reject obvious non-location fragments without guessing what the recognizer
  // meant. This is deliberately not a city dictionary or geographic validation.
  for(const key of ['origin','destination'])if(values[key]&&/^(?:used in|use in|unknown|unclear|not sure|same as (?:before|above))$/i.test(values[key])){
@@ -36,6 +38,12 @@ export function extractShipment(text:string,contacts:{id:string;name:string}[]):
   delete values[key];warnings.push(`${key[0].toUpperCase()+key.slice(1)} unchanged: this field was uncertain. Confirm it manually.`);
  }
  for(const key of Object.keys(values))values[key]=normalizeSpeech(values[key]).replace(/\bp\.?m\.?/gi,'PM').replace(/\ba\.?m\.?/gi,'AM');
+ // Join an explicitly spelled RG identifier only; do not apply number-word
+ // conversion to places, notes or uncertain reference text.
+ if(values.reference&&/^R\s*G\s+(?:(?:zero|one|two|three|four|five|six|seven|eight|nine|\d)\s+)*(?:zero|one|two|three|four|five|six|seven|eight|nine|\d)$/i.test(values.reference)){
+  const digits=['zero','one','two','three','four','five','six','seven','eight','nine'];
+  values.reference='RG-'+values.reference.replace(/^R\s*G\s+/i,'').split(/\s+/).map(d=>/^\d$/.test(d)?d:digits.indexOf(d.toLowerCase())).join('');
+ }
  for(const key of ['reference','origin','destination'] as const)if(values[key])fields[key]=key==='reference'?values[key].replace(/\bR\s*G\s*[- ]?\s*(\d+)\b/i,'RG-$1'):values[key];
  if(values.carrier){const found=contacts.filter(c=>c.name.toLowerCase()===values.carrier.toLowerCase());if(found.length===1)fields.contactId=found[0].id;else warnings.push('Carrier was not an exact match. Choose the carrier from the list.');}
  if(values.timezone){const tz=values.timezone.toLowerCase();const found=/^(?:central time|ct|america[ /]chicago)$/.test(tz)?'America/Chicago':/^(?:eastern time|et|america[ /]new[ _]york)$/.test(tz)?'America/New_York':/^(?:mountain time|mt|america[ /]denver)$/.test(tz)?'America/Denver':/^(?:india standard time|asia[ /]kolkata)$/.test(tz)?'Asia/Kolkata':undefined;if(found)fields.windowTz=found;else warnings.push('Timezone unchanged: choose a timezone or say America Chicago, Eastern time, or India Standard Time.');}

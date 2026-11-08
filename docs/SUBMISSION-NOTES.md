@@ -125,3 +125,12 @@ Validation: 132/132 code/database tests and 82/82 labelled transcript evaluation
 Authenticated hosted persistence is now verified for the typed practice conversation/handoff, through the real owner session: fictional QA-PERSIST-1108 was saved, fully reloaded and reopened. Activity retained the reviewed caller text and four handoff messages; Escalations retained the open delay issue with no captured ETA. Read-only Supabase queries independently confirmed the records. See [hosted evidence](../validation/HOSTED-PERSISTENCE-2026-11-08.md). This supersedes earlier pending hosted-save statements for this typed path only. The original user draft was neither saved nor refreshed.
 
 Still pending: real microphone retry acceptance, consented microphone-plus-Bella recording save/playback, and a second account's signup/email confirmation/sign-in/approved workspace access. One owner account and membership were observed. GitHub synchronization remains blocked by unavailable saved credentials; local changes are not claimed as pushed.
+
+
+## On-time shipment dictation boundary — 8 November
+
+The screenshot sentence “shipment shipment reference RG 1055 origin from Alaska destination to Minnesota and we would be on time” now fills RG-1055, Alaska, Minnesota, and the note “we would be on time”. The punctuated spoken variant with “R G one zero five five” is also covered. Route labels consume their leading from/to prepositions; on-time clauses are separated like delay clauses, preserving negation and uncertainty. A note does not create an ETA report or change the selected practice scenario.
+
+Validation: 22/22 related code/database tests, 7/7 Chrome entry/UI tests, TypeScript and isolated production build passed. The browser regression checks both utterances, review-before-save and note persistence after reload. Recognition in these automated tests is text/mocked input, not an acoustic accuracy measurement.
+
+The tested frontend was installed with existing assets retained. HTTP verified index-DR3_ffmj.js is served, and downloaded bytes matched the tested asset. No server restart, user-tab refresh, or hosted data mutation occurred. An already-open tab needs a reload to use the changed parser; its unsaved draft is untouched. GitHub synchronization remains blocked by the existing credential issue.

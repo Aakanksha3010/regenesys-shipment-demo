@@ -118,3 +118,19 @@ test('uncertainty affects only its labelled field while a leading qualifier rema
  assert.equal(r.fields.reference,'RG-1054');assert.equal(r.fields.origin,undefined);assert.equal(r.fields.destination,'Houston');assert.deepEqual(r.warnings,['Origin unchanged: this field was uncertain. Confirm it manually.']);
  assert.deepEqual(extractShipment('Maybe reference RG 1054 origin Alaska destination Houston',seed().contacts).fields,{});
 });
+
+
+test('on-time dictation keeps route prepositions and status out of place names',()=>{
+ const cases=[
+  'shipment shipment reference RG 1055 origin from Alaska destination to Minnesota and we would be on time',
+  'Shipment reference R G one zero five five, origin from Alaska, destination to Minnesota. And we would be on time.'
+ ];
+ for(const text of cases){const r=extractShipment(text,seed().contacts);assert.deepEqual(r.warnings,[]);assert.deepEqual(r.fields,{reference:'RG-1055',origin:'Alaska',destination:'Minnesota',note:'we would be on time'});}
+ for(const status of ['we might be on time','we will not be on time','the shipment is on time','we are not running on time']){
+  const r=extractShipment('Origin from Alaska destination to Minnesota and '+status,seed().contacts);
+  assert.equal(r.fields.origin,'Alaska');assert.equal(r.fields.destination,'Minnesota');assert.equal(r.fields.note,status);assert.equal(r.fields.scenarioId,undefined);assert.equal(r.fields.windowStart,undefined);
+ }
+ assert.equal(extractShipment('Origin Frome. Destination Toronto.',seed().contacts).fields.origin,'Frome');
+ assert.equal(extractShipment('Origin Frome. Destination Toronto.',seed().contacts).fields.destination,'Toronto');
+ assert.equal(extractShipment('Origin from maybe Alaska. Destination to Minnesota.',seed().contacts).fields.origin,undefined);
+});
