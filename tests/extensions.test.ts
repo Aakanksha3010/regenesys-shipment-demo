@@ -26,6 +26,20 @@ test('dictation leaves ambiguous carriers, dates and zones unresolved',()=>{
 test('dictation rejects impossible dates and does not silently repair them',()=>{
  const r=extractShipment('Delivery date February 30, 2026. Window start 1 PM. Window end 5 PM.',seed().contacts);assert.equal(r.fields.windowStart,undefined);assert.equal(r.fields.windowEnd,undefined);
 });
+test('spoken delay detail is separated from destination and preserves uncertainty',()=>{
+ for(const clause of ['shipment could be 30 minutes delayed','shipment might be thirty minutes late','the shipment is not delayed']){
+  const r=extractShipment('Reference RF 1065 origin Alaska destination Houston '+clause,seed().contacts);
+  assert.deepEqual(r.warnings,[]);assert.equal(r.fields.reference,'RF 1065');assert.equal(r.fields.origin,'Alaska');assert.equal(r.fields.destination,'Houston');assert.equal(r.fields.note,clause);assert.equal(r.fields.windowStart,undefined);assert.equal(r.fields.scenarioId,undefined);
+ }
+ const r=extractShipment('Origin Alaska. Destination Houston and shipment could be 30 minutes delayed. Additional description: driver is waiting for a repair.',seed().contacts);
+ assert.equal(r.fields.destination,'Houston');assert.equal(r.fields.note,'shipment could be 30 minutes delayed\ndriver is waiting for a repair');
+});
+test('additional description supports note-only dictation without guessing route fields',()=>{
+ assert.deepEqual(extractShipment('The shipment might be five hours late',seed().contacts).fields,{note:'The shipment might be five hours late'});
+ assert.deepEqual(extractShipment('Additional description: Maybe delayed. Note: Call the coordinator.',seed().contacts).fields,{note:'Maybe delayed\nCall the coordinator'});
+ assert.equal(extractShipment('Additional description: '+ 'x'.repeat(1001),seed().contacts).fields.note,undefined);
+ assert.equal(extractShipment('Destination Houston.',seed().contacts).fields.note,undefined);
+});
 test('screenshot dictation identifies timezone and explains unresolved dates and compact time',()=>{
  const r=extractShipment('Windows started keypad 7th November 344 p.m. and window and it would be 8th November for 10:00 a.m. Windows time zone would be America Chicago practice time',seed().contacts);
  assert.equal(r.fields.windowTz,'America/Chicago');assert.equal(r.fields.windowStart,undefined);assert.equal(r.fields.windowEnd,undefined);
@@ -40,6 +54,11 @@ test('voice-filled shipment requires review and its fields and source persist th
  const fields={...extractShipment(description,seed().contacts).fields,scenarioId:'on_time',entryMethod:'browser_voice',voiceTranscript:description};
  assert.throws(()=>transition(seed(),{type:'create',requestId:'entry',fields},localActor),/Review all/);
  const {store,db}=await localStore();try{await store.dispatch({type:'create',requestId:'entry',fields:{...fields,voiceReviewed:'on'}},localActor);const s=await store.read();assert.equal(s.shipments.at(-1)?.reference,'RG-1050');assert.equal(s.audit.at(-1)?.action,'shipment_voice_entry_reviewed');assert.equal((s.audit.at(-1)?.details as any).transcript,description);}finally{await db.close();}
+});
+test('reviewed spoken delay description persists as a sourced shipment note',async()=>{
+ const spoken=description+' Additional description: shipment could be 30 minutes delayed.';
+ const fields={...extractShipment(spoken,seed().contacts).fields,scenarioId:'on_time',entryMethod:'browser_voice',voiceTranscript:spoken,voiceReviewed:'on'};
+ const {store,db}=await localStore();try{await store.dispatch({type:'create',requestId:'delay-note',fields},localActor);const s=await store.read();const sh=s.shipments.at(-1)!;const note=s.annotations.find(n=>n.shipmentId===sh.id)!;assert.equal(sh.destination,'Austin, Texas');assert.equal(note.text,'shipment could be 30 minutes delayed');assert.equal(note.actorId,localActor.id);assert.equal(note.at,s.clock);assert.equal((s.audit.at(-1)?.details as any).transcript,spoken);assert.equal(s.reports.length,0);}finally{await db.close();}
 });
 test('simulated handoff replies persist with the delay, without confirming an ETA',async()=>{
  const {store,db}=await localStore();try{await store.dispatch(voiceAction,localActor);const s=await store.read();assert.equal(s.reports[0].instant,null);assert.equal(s.escalations[0].reasons[0].reason,'delay_reported');const details=s.audit.at(-1)!.details as any;assert.equal(details.handoffSession.mode,'simulated_only');assert.equal(details.handoffSession.messages[0].text,'I can help review the delay.');assert.equal(details.handoffSession.status,'ended');}finally{await db.close();}

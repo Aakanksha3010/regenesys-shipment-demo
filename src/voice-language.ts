@@ -4,6 +4,8 @@ export function normalizeSpeech(text: string): string {
   const numbers: Record<string, number> = {one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10,eleven:11,twelve:12};
   const ordinals: Record<string, number> = {first:1,second:2,third:3,fourth:4,fifth:5,sixth:6,seventh:7,eighth:8,ninth:9,tenth:10,eleventh:11,twelfth:12,thirteenth:13,fourteenth:14,fifteenth:15,sixteenth:16,seventeenth:17,eighteenth:18,nineteenth:19,twentieth:20,'twenty first':21,'twenty second':22,'twenty third':23,'twenty fourth':24,'twenty fifth':25,'twenty sixth':26,'twenty seventh':27,'twenty eighth':28,'twenty ninth':29,thirtieth:30,'thirty first':31};
   return text.replace(/\b(\d{1,2})(?:st|nd|rd|th)\b/gi,'$1')
+    .replace(/\b(\d{1,2})\s+(?:of\s+)?(January|February|March|April|May|June|July|August|September|October|November|December)\b/gi,'$2 $1')
+    .replace(new RegExp('\\b('+Object.keys(ordinals).sort((a,b)=>b.length-a.length).join('|')+')\\s+(?:of\\s+)?(January|February|March|April|May|June|July|August|September|October|November|December)\\b','gi'),(_all,day,month)=>`${month} ${ordinals[day.toLowerCase()]}`)
     .replace(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(twenty[- ]\w+|thirty[- ]first|\w+)/gi,(all,month,day)=>ordinals[day.toLowerCase().replace('-',' ')]?`${month} ${ordinals[day.toLowerCase().replace('-',' ')]}`:all)
     .replace(/\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)(?:\s+(fifteen|thirty|forty[- ]five))?\s+(a\.?m\.?|p\.?m\.?)\b/gi,(_all,h,m,ap)=>`${numbers[h.toLowerCase()]}${m?':'+(({fifteen:'15',thirty:'30','forty five':'45'} as Record<string,string>)[m.toLowerCase().replace('-',' ')]):''} ${ap}`)
     .replace(/\b(central|eastern)\s+(standard|daylight)\s+time\b/gi,'$1 time')
@@ -11,14 +13,22 @@ export function normalizeSpeech(text: string): string {
     .replace(/\bi[ .]*s[ .]*t\b/gi,'India Standard Time');
 }
 
+export function spokenEtaDetails(text:string){
+ const normalized=normalizeSpeech(text);
+ return {
+  date:normalized.match(/\b(?:today|tomorrow)\b|\b\d{4}-\d{2}-\d{2}\b|\b(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2}(?:,?\s+\d{4})?\b/i)?.[0],
+  time:normalized.match(/\b(?:[1-9]|1[0-2])(?::[0-5]\d)?\s*(?:a\.?m\.?|p\.?m\.?)\b/i)?.[0],
+  zone:normalized.match(/\b(?:central time|ct|eastern time|et|india standard time|indian standard time)\b/i)?.[0],
+ };
+}
+export const hasArrivalWindow=(text:string)=>/\bwithin\s+(?:\d+|one|two|three|four|five|six|twelve|twenty[- ]four)\s+(?:hours?|days?|minutes?)\b/i.test(text);
+
 export function voiceClarification(text:string):VoicePrompt {
  if(hasDelayEvidence(text))return 'delay_handoff';
  if(hasUnresolvedTimeReference(text))return 'clarification';
- const normalized=normalizeSpeech(text);
- if(uncertainSpeech(text)||/\bbetween\b|\bactually\b|\bmidnight\b/i.test(text))return 'clarification';
- const date=/\b(?:today|tomorrow)\b|\b\d{4}-\d{2}-\d{2}\b|\b(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2}\b/i.test(normalized);
- const time=/\b(?:[1-9]|1[0-2])(?::[0-5]\d)?\s*(?:a\.?m\.?|p\.?m\.?)\b/i.test(normalized);
- const zone=/\b(?:central time|ct|eastern time|et|india standard time|indian standard time)\b/i.test(normalized);
+ if(/\bbetween\b|\bactually\b|\bmidnight\b/i.test(text))return 'clarification';
+ const {date,time,zone}=spokenEtaDetails(text);
+ if(date&&time&&!zone&&(uncertainSpeech(text)||hasArrivalWindow(text)))return 'ask_timezone_uncertain';
  const missing=[!date?'date':'',!time?'time':'',!zone?'timezone':''].filter(Boolean).join('_');
  const prompts:Record<string,VoicePrompt>={date:'ask_date',time:'ask_time',timezone:'ask_timezone',date_time:'ask_date_time',date_timezone:'ask_date_timezone',time_timezone:'ask_time_timezone'};
  return prompts[missing]||'clarification';
@@ -56,5 +66,6 @@ export function callerReply(result:{reasons:string[];delay:boolean;voiceIntent?:
  if(result.frustrated)return 'empathy_handoff';
  if(result.voiceIntent==='human_request')return 'human_handoff';
  if(result.delay||result.reasons.includes('eta_after_window'))return 'delay_handoff';
+ if(result.reasons.some(r=>['ambiguous','incomplete_eta','range_or_conflict'].includes(r)))return 'uncertain_handoff';
  return result.reasons.length?'escalation':'review';
 }

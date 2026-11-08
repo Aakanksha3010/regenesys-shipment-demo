@@ -4,7 +4,7 @@ const results:{name:string;passed:boolean}[]=[];
 function test(name:string,fn:()=>void|Promise<void>){nodeTest(name,async()=>{try{await fn();results.push({name,passed:true});}catch(e){results.push({name,passed:false});throw e;}});}
 after(async()=>{await mkdir('validation',{recursive:true});await writeFile('validation/voice-results.json',JSON.stringify({tests:results},null,2));});
 import assert from 'node:assert/strict';
-import {voiceClarification,callerReply,classifyVoiceIntent} from '../src/voice-language.js';
+import {voiceClarification,callerReply,classifyVoiceIntent,spokenEtaDetails} from '../src/voice-language.js';
 import {voicePrompts} from '../src/voice-prompts.js';
 import {seed,transition,interpretVoice,localActor} from '../src/domain.js';
 import {localStore} from '../server/store.js';
@@ -15,6 +15,21 @@ test('voice normalizes spoken dates and times without inventing missing fields',
  assert.equal(interpretVoice(text,undefined,sh).instant,'2026-11-11T21:30:00Z');
  assert.equal(interpretVoice('tomorrow at three PM',undefined,sh).capture,'uncaptured');
  assert.equal(interpretVoice('tomorrow at three PM','Central time',sh).instant,'2026-11-11T21:00:00Z');
+});
+test('screenshot 5 AM is retained while uncertainty and the timezone are clarified',()=>{
+ const first='we would be expected to come around 10th of November at 5:00 a.m. and we are expected to arrive within 24 hours and the time zone is same as Texas';
+ assert.equal(spokenEtaDetails(first).date,'November 10');assert.match(spokenEtaDetails(first).time!,/5:00 a\.m/);assert.equal(spokenEtaDetails(first).zone,undefined);
+ assert.equal(voiceClarification(first),'ask_timezone_uncertain');assert.doesNotMatch(voicePrompts[voiceClarification(first)],/what time|what date|AM or PM/);
+ const r=interpretVoice(first,'can you write 5:00 a.m.',sh);assert.equal(r.delay,false);assert.equal(r.assessment,'none');assert.equal(r.instant,null);assert.deepEqual(r.reasons,['ambiguous']);assert.equal(callerReply(r),'uncertain_handoff');
+ assert.doesNotMatch(voicePrompts[callerReply(r)],/\b(?:late|delay)\b/);
+});
+test('clear 5 AM asks only for missing details and does not create a delay issue',()=>{
+ assert.equal(voiceClarification('5am'),'ask_date_timezone');assert.equal(voiceClarification('11th of November 2026 at 5am'),'ask_timezone');
+ assert.equal(interpretVoice('5am','11th of November 2026 Central time',sh).instant,'2026-11-11T11:00:00Z');
+ const r=interpretVoice('eleventh of November 2026 at five AM Central time',undefined,sh);assert.equal(r.instant,'2026-11-11T11:00:00Z');assert.deepEqual(r.reasons,[]);assert.equal(r.assessment,'early');
+});
+test('an arrival within 24 hours is uncertainty, not a delay or an exact ETA',()=>{
+ const r=interpretVoice('November 11, 2026 at 5 AM Central time and within 24 hours',undefined,sh);assert.equal(r.instant,null);assert.equal(r.delay,false);assert.deepEqual(r.reasons,['ambiguous']);
 });
 test('voice does not confirm tentative estimates or conflicting times',()=>{
  for(const answer of ['Maybe tomorrow at three PM Central time','November 11, 2026 at 3 PM and 5 PM Central time','Between 2 and 4 PM Central time tomorrow'])assert.equal(interpretVoice(answer,undefined,sh).capture,'uncaptured');

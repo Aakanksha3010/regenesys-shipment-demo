@@ -1,6 +1,6 @@
 import { Temporal } from '@js-temporal/polyfill';
 import {voicePrompts} from './voice-prompts.js';
-import {normalizeSpeech,voiceEnding,uncertainSpeech,hasDelayEvidence,hasUnresolvedTimeReference,voiceClarification,classifyVoiceIntent} from './voice-language.js';
+import {normalizeSpeech,voiceEnding,uncertainSpeech,hasArrivalWindow,hasDelayEvidence,hasUnresolvedTimeReference,voiceClarification,classifyVoiceIntent} from './voice-language.js';
 
 export type Assessment = 'none'|'on_time'|'early'|'delay';
 export type Outcome = 'eta_captured'|'eta_incomplete'|'ambiguous'|'no_answer'|'voicemail'|'dropped'|'wrong_number'|'refused';
@@ -69,8 +69,8 @@ export function interpretVoice(text:string,clarification:string|undefined,shipme
  const normalized=normalizeSpeech(text),followup=clarification?normalizeSpeech(clarification):undefined;
  const result=interpret(ending,normalized,followup,shipment,clock);
  // Uncertain estimates are never promoted to a precise ETA by normalization.
- const completeClarification=followup?interpret('completed',followup,undefined,shipment,clock).capture==='captured':false;
- const uncertain=uncertainSpeech(clarification||'')||(!completeClarification&&uncertainSpeech(text));
+ const completeClarification=followup&&!hasArrivalWindow(followup)?interpret('completed',followup,undefined,shipment,clock).capture==='captured':false;
+ const uncertain=uncertainSpeech(clarification||'')||hasArrivalWindow(clarification||'')||(!completeClarification&&(uncertainSpeech(text)||hasArrivalWindow(text)));
  if(ending==='completed'&&uncertain){result.instant=null;result.capture='uncaptured';result.outcome='ambiguous';result.completeness='partial';result.assessment=result.delay?'delay':'none';result.reasons=result.delay?['delay_reported','ambiguous']:['ambiguous'];}
  const times=[...(followup||normalized).matchAll(/\b(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)\b/gi)].map(m=>`${m[1]}:${m[2]||'00'}${m[3][0].toLowerCase()}`);
  if(ending==='completed'&&new Set(times).size>1){result.instant=null;result.capture='uncaptured';result.outcome='ambiguous';result.completeness='conflict';result.assessment=result.delay?'delay':'none';result.reasons=result.delay?['delay_reported','range_or_conflict']:['range_or_conflict'];}

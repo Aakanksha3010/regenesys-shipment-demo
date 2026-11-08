@@ -1,6 +1,6 @@
 # SIMULATED transcript evaluations
 
-Generated 2026-11-08T09:22:22.027Z. Hand-labelled written inputs test interpretation and state transitions, not speech recognition, real carrier behavior or statistical accuracy.
+Generated 2026-11-08T09:43:24.217Z. Hand-labelled written inputs test interpretation and state transitions, not speech recognition, real carrier behavior or statistical accuracy.
 
 ## Original fixture baseline
 
@@ -16,11 +16,11 @@ Generated 2026-11-08T09:22:22.027Z. Hand-labelled written inputs test interpreta
 
 | Metric | Result |
 | --- | --- |
-| Cases passing every check | 52/52 |
-| Exact captured ETA | 18/18 |
-| False captures | 0/34 |
-| Required escalation coverage | 38/38 |
-| False alerts | 0/14 |
+| Cases passing every check | 57/57 |
+| Exact captured ETA | 20/20 |
+| False captures | 0/37 |
+| Required escalation coverage | 41/41 |
+| False alerts | 0/16 |
 
 ## Case results
 
@@ -103,5 +103,10 @@ Generated 2026-11-08T09:22:22.027Z. Hand-labelled written inputs test interpreta
 | V50 | real retest: unresolved baseline and timezone | PASS |  |
 | V51 | current clock is not an arrival estimate | PASS |  |
 | V52 | negated duration delay | PASS |  |
+| V53 | screenshot: known 5 AM but unclear window and zone | PASS |  |
+| V54 | 5 AM retained with day-first date and zone followup | PASS |  |
+| V55 | day-first spoken date | PASS |  |
+| V56 | arrival window cannot become a precise capture | PASS |  |
+| V57 | exact live retest: retain 5 AM and do not label uncertainty as delay | PASS |  |
 
 The audio evaluation protocol is in evals/AUDIO-CHECKS.md. Real audio and authenticated hosted browser saves remain separate checks. A zero-error result on these fixtures does not establish general language understanding.

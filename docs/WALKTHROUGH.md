@@ -21,7 +21,7 @@ To repeat: reset the local demo. Hosted reset is disabled. Hosted verification s
 2. Read the microphone disclosure, opt in, then select **Start conversation**. Allow microphone access yourself when prompted. The app speaks first, then listens. Use Chrome if the embedded browser reports speech recognition unavailable.
 3. Say: “November eleventh, 2026 at three thirty PM Central time.” Or omit the timezone to hear one clarification. Dates use the visible simulation clock.
 4. The agent proposes a result. Try “Truck broke down, not sure when” to see a human escalation, or “Wrong number” to see contact suppression proposed. Tentative estimates such as “maybe tomorrow at three PM” remain unconfirmed.
-5. Review and, if needed, correct the transcript. Check **I reviewed the transcript, proposed result and any practice replies**, then **Save reviewed conversation**. The server computes the result again; it never trusts a browser-provided ETA or assessment.
+5. Review and, if needed, correct the transcript. Check **I checked the outcome and any practice replies**, then **Save reviewed conversation** or **Save and forward to human team**, as shown. Conversation details stay collapsed unless you want to inspect or correct them. The server computes the result again; it never trusts a browser-provided ETA or assessment.
 6. Inspect the resulting shipment, issue and call history. Browser voice and typed demos are labelled separately from scripted fixtures. Delay/uncertainty creates an issue on save; nothing is persisted before review.
 
 Closing a draft stops audio and discards it. Listening has a 25-second limit; speech-service errors never invent an answer. A draft is rejected if the workspace changes before save, preventing it from overwriting a newer human correction. Failed saves can be retried with the same request ID without creating a duplicate check. If a concurrency warning appears, close the draft, refresh, and begin again.
@@ -34,7 +34,7 @@ Say “We are five hours late” and accept the simulated handoff. During/after 
 
 ## Voice-assisted shipment entry
 
-Choose **Add shipment → Fill with your voice**. Dictate using the example field labels. Select **Fill fields from description**, correct all extracted details and complete any blank fields. Check the field-review box before saving. Editing a field revokes that confirmation. Both new and existing shipment drafts retain fields you did not dictate. The form identifies updated fields and explains unresolved dates or times. The practice scenario remains a separately selected simulation setting.
+Choose **Add shipment → Fill with your voice**. Dictate using the example field labels. Select **Fill fields from description**, correct all extracted details and complete any blank fields. Check the field-review box before saving. Editing a field revokes that confirmation. Both new and existing shipment drafts retain fields you did not dictate. Spoken delay clauses after the route are separated into Additional description / shipment note, preserving uncertainty and existing notes. You can also say “Additional description” explicitly. The form identifies updated fields and explains unresolved dates or times. The practice scenario remains a separately selected simulation setting.
 
 ## Optional recording
 
