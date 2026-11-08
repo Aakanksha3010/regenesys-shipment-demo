@@ -73,7 +73,7 @@ Partial shipment dictation no longer clears existing details. Common window labe
 
 See [the 8 November status and focused retest](STATUS-2026-11-08.md). Human-request and frustration prompts now disclose the simulated handoff before acceptance, with regression checks. These changes were activated on 8 November after the user confirmed testing was finished; the served asset and sign-in boundary were verified. Nothing has been submitted or shared with a reviewer.
 
-## Subsequent voice and dictation feedback — awaiting activation
+## Subsequent voice and dictation feedback — activated
 
 The spoken description “destination Houston shipment could be 30 minutes delayed” is now split into destination Houston and an additional-description note. Existing notes are retained, repeated application does not duplicate the same note, and review remains required.
 
@@ -81,6 +81,6 @@ The reported “10th of November at 5 AM … within 24 hours … same as Texas�
 
 Conversation details are collapsed by default. A concise outcome explains the forwarding reason, and the save action forwards to the shared team queue with a confirmation after success. Uncertainty can use the same explicit simulated handoff path. No real transfer is claimed. Original conversation text remains in saved audit history.
 
-The user paused live testing. These subsequent changes passed an isolated build and are not yet activated in the running app. The served asset checked during the investigation was index-BtsT5VcZ.js, which does not contain the new targeted clarification or additional-description label. Activation and a live acceptance retest require coordination when the user returns.
+The user returned and authorized continuing on 8 November. The app was rebuilt and started; HTTP 200 and served asset index-Dd4ciqxj.js were verified, including the targeted clarification, additional-description field, collapsed conversation details and human-team forwarding action. Supabase mode and HTTP 401 for unsigned state reads were also verified. Live acceptance remains pending. GitHub pushing is blocked by unavailable saved credentials; the application changes are committed locally.
 
 Validation for this follow-up: 123 code/database tests and 82 labelled transcript cases passed; 35 deterministic conversation checks passed across 12 conversations. Chrome reported 32 passes plus one flaky case that passed its recorded retry (a detached-element timeout). An earlier run also encountered ERR_NETWORK_IO_SUSPENDED while loading the dashboard. These interruptions are retained as limitations, not reported as a completely clean first-pass run. Both new 5 AM browser regressions and the delay-note save/refresh test passed. No paid model judge or new live audio-quality result is claimed.
