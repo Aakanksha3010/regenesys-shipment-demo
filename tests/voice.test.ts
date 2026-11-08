@@ -167,3 +167,15 @@ test('live ninth-November 5 PM wording preserves the clock time and does not inv
  const conflictingDemoDate=interpretVoice(first,'5 PM, same time zone as yours.; Central time',sh);assert.equal(conflictingDemoDate.instant,null);assert.ok(conflictingDemoDate.reasons.includes('range_or_conflict'));assert.ok(!conflictingDemoDate.reasons.includes('eta_after_window'));
  const matchingClock=interpretVoice(first,'Central time',sh,'2026-11-08T15:00:00Z');assert.equal(matchingClock.instant,'2026-11-09T23:00:00Z');
 });
+
+test('Texas does not select a timezone; explicit Central and Mountain answers do',async()=>{
+ const first='we would be arriving tomorrow, that is ninth of November at six p.m. and the time zone is Texas';
+ assert.equal(voiceClarification(first),'ask_texas_timezone');assert.equal(spokenEtaDetails(first).time,'6 p.m');
+ const clock='2026-11-08T15:00:00Z';assert.equal(interpretVoice(first,'Texas time',sh,clock).instant,null);
+ assert.equal(interpretVoice(first,'Central time',sh,clock).instant,'2026-11-10T00:00:00Z');
+ assert.equal(interpretVoice(first,'Mountain time',sh,clock).instant,'2026-11-10T01:00:00Z');
+ const {coordinatorContext,coordinatorReply}=await import('../src/coordinator-script.js');
+ const context=coordinatorContext(first+'\nClarification: Texas time',[],sh,seed().clock);
+ assert.equal(context.time,'6 p.m');assert.ok(context.dates.includes('November 9'));assert.equal(context.prompt,'coordinator_texas');assert.equal(context.zone,undefined);
+ const correctedZone=coordinatorContext(first+'\nClarification: Texas time\nClarification: Not sure\nHandoff response: Yes',['Central time'],sh,seed().clock);assert.equal(correctedZone.conflictingDate,true);assert.equal(coordinatorReply('Central time',[],correctedZone).prompt,'coordinator_date');
+});

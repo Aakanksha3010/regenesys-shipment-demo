@@ -35,7 +35,7 @@ The localhost URL is available only on the machine running the app. A reviewer c
 | Item | Status / dependency |
 | --- | --- |
 | Voice and UI experience | User confirms testing ElevenLabs voice and says UI is fine (8 November); detailed scenario accuracy and timings not supplied |
-| Signed-in hosted reviewed save | Pending; inspect saved rows and attribution, then refresh to confirm persistence |
+| Signed-in hosted reviewed save | Verified for typed practice conversation and simulated handoff on QA-PERSIST-1108; full reload, Activity and Escalations checked. Real microphone/audio attachment remains pending |
 | Additional user accounts | General signup/sign-in UI implemented; a second account must confirm email and receive approved membership. Actual sign-in, shared data and role checks remain |
 | Model-judged DeepEval scores | Not run; no paid evaluator requested or used. Local deterministic checks and a separately labelled chat review are available |
 | Recorded audio metrics | Not run; permitted recordings, reference transcripts and timings required |
@@ -112,3 +112,16 @@ The exact screenshot sentence "shipment reference would be RG 1054 and origin is
 Expected draft: reference RG-1054, origin Alaska, destination Houston, note "be might get 30 minutes late". It does not infer a corrected pronoun or a confirmed delay/ETA. Existing values remain unchanged when their replacement is uncertain, and review is still required before save.
 
 Validation: 21/21 related code/database tests, 6/6 entry browser checks, TypeScript and production build passed. The frontend was rebuilt while retaining the old assets. No server restart, user-draft refresh, or hosted save was performed. Reload when ready to receive the fix. GitHub synchronization remains blocked by the previously reported credential problem.
+
+
+## Timeout recovery and contextual handoff — activated 8 November
+
+The timezone-listening timeout now keeps the first answer and offers Retry microphone, an editable draft reply, and End without a reply. Partial recognition is never silently accepted. A finalized answer is processed even if the browser fails to emit its end event. An unanswered arrival follow-up no longer displays a premature forwarding outcome; ending without a reply leaves the arrival unconfirmed. Recording remains separately controlled.
+
+Texas alone is not an explicit timezone. Bella asks Central or Mountain while retaining the supplied date/time. The simulated coordinator receives the shipment, earlier date/time/timezone statements, and unresolved date conflict. It can ask the remaining question without starting over. Scripted coordinator messages never confirm an ETA. Dates use the visible November 10 practice clock; “tomorrow, ninth of November” is conflicting under that clock.
+
+Validation: 132/132 code/database tests and 82/82 labelled transcript evaluations passed. The 31-case voice browser run initially had 28 passes and three failures: two case-sensitive assertions and one real context issue where “not sure” hid a date conflict. After fixes, all five targeted recovery/context/persistence checks passed, as did 24 voice unit tests, TypeScript, lint and production build. This is not a claim of a new clean whole-suite browser run or paid model judging. The served build is index-D_EwIEp7.js.
+
+Authenticated hosted persistence is now verified for the typed practice conversation/handoff, through the real owner session: fictional QA-PERSIST-1108 was saved, fully reloaded and reopened. Activity retained the reviewed caller text and four handoff messages; Escalations retained the open delay issue with no captured ETA. Read-only Supabase queries independently confirmed the records. See [hosted evidence](../validation/HOSTED-PERSISTENCE-2026-11-08.md). This supersedes earlier pending hosted-save statements for this typed path only. The original user draft was neither saved nor refreshed.
+
+Still pending: real microphone retry acceptance, consented microphone-plus-Bella recording save/playback, and a second account's signup/email confirmation/sign-in/approved workspace access. One owner account and membership were observed. GitHub synchronization remains blocked by unavailable saved credentials; local changes are not claimed as pushed.

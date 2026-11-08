@@ -25,11 +25,11 @@ function parse(text:string,clock:string):{instant:string|null;tz?:string;date?:s
   if(hasUnresolvedTimeReference(text))return {instant:null,completeness:'partial',kind:'ambiguous'};
   const dates=[...lower.matchAll(new RegExp('('+months.join('|')+')\\s+(\\d{1,2})(?:,?\\s+(\\d{4}))?','g'))].map(m=>m[1]+' '+m[2]);
   const times=[...lower.matchAll(/\b(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)\b/g)].map(m=>m[1]+':'+(m[2]||'00')+m[3][0]);
-  const zones=[/\bcentral time\b|\bct\b/,/\beastern time\b|\bet\b/,/\b(?:india|indian) standard time\b/].filter(re=>re.test(lower));
+  const zones=[/\bcentral time\b|\bct\b/,/\beastern time\b|\bet\b/,/\bmountain time\b|\bmt\b/,/\b(?:india|indian) standard time\b/].filter(re=>re.test(lower));
   if(new Set(dates).size>1||new Set(times).size>1||zones.length>1)return {instant:null,completeness:'conflict',kind:'range_or_conflict'};
   if(/\bbetween\b|\b\d[^\n]*\bto\s+\d/.test(lower)) return {instant:null,completeness:'range',kind:'range_or_conflict'};
   if(/\bactually\b|\bor\s+\d/.test(lower)) return {instant:null,completeness:'conflict',kind:'range_or_conflict'};
-  const tz=/\bcentral time\b|\bct\b/i.test(text)?'America/Chicago':/\beastern time\b|\bet\b/i.test(text)?'America/New_York':/\b(?:india|indian) standard time\b/i.test(text)?'Asia/Kolkata':undefined;
+  const tz=/\bcentral time\b|\bct\b/i.test(text)?'America/Chicago':/\beastern time\b|\bet\b/i.test(text)?'America/New_York':/\bmountain time\b|\bmt\b/i.test(text)?'America/Denver':/\b(?:india|indian) standard time\b/i.test(text)?'Asia/Kolkata':undefined;
   const tm=text.match(/\b(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)\b/i);
   const dm=lower.match(new RegExp('('+months.join('|')+')\\s+(\\d{1,2})(?:,?\\s+(\\d{4}))?'));
   const iso=lower.match(/\b(\d{4}-\d{2}-\d{2})\b/);

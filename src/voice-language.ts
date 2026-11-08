@@ -8,7 +8,7 @@ export function normalizeSpeech(text: string): string {
     .replace(new RegExp('\\b('+Object.keys(ordinals).sort((a,b)=>b.length-a.length).join('|')+')\\s+(?:of\\s+)?(January|February|March|April|May|June|July|August|September|October|November|December)\\b','gi'),(_all,day,month)=>`${month} ${ordinals[day.toLowerCase()]}`)
     .replace(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(twenty[- ]\w+|thirty[- ]first|\w+)/gi,(all,month,day)=>ordinals[day.toLowerCase().replace('-',' ')]?`${month} ${ordinals[day.toLowerCase().replace('-',' ')]}`:all)
     .replace(/\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)(?:\s+(fifteen|thirty|forty[- ]five))?\s+(a\.?m\.?|p\.?m\.?)\b/gi,(_all,h,m,ap)=>`${numbers[h.toLowerCase()]}${m?':'+(({fifteen:'15',thirty:'30','forty five':'45'} as Record<string,string>)[m.toLowerCase().replace('-',' ')]):''} ${ap}`)
-    .replace(/\b(central|eastern)\s+(standard|daylight)\s+time\b/gi,'$1 time')
+    .replace(/\b(central|eastern|mountain)\s+(standard|daylight)\s+time\b/gi,'$1 time')
     // Explicit demo alias shown beside the voice controls; never infer from device locale.
     .replace(/\bi[ .]*s[ .]*t\b/gi,'India Standard Time');
 }
@@ -18,7 +18,7 @@ export function spokenEtaDetails(text:string){
  return {
   date:normalized.match(/\b(?:today|tomorrow)\b|\b\d{4}-\d{2}-\d{2}\b|\b(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2}(?:,?\s+\d{4})?\b/i)?.[0],
   time:normalized.match(/\b(?:[1-9]|1[0-2])(?::[0-5]\d)?\s*(?:a\.?m\.?|p\.?m\.?)\b/i)?.[0],
-  zone:normalized.match(/\b(?:central time|ct|eastern time|et|india standard time|indian standard time)\b/i)?.[0],
+  zone:normalized.match(/\b(?:central time|ct|eastern time|et|mountain time|mt|india standard time|indian standard time)\b/i)?.[0],
  };
 }
 export const hasArrivalWindow=(text:string)=>/\bwithin\s+(?:\d+|one|two|three|four|five|six|twelve|twenty[- ]four)\s+(?:hours?|days?|minutes?)\b/i.test(text);
@@ -29,6 +29,7 @@ export function voiceClarification(text:string):VoicePrompt {
  if(/\bbetween\b|\bactually\b|\bmidnight\b/i.test(text))return 'clarification';
  const {date,time,zone}=spokenEtaDetails(text);
  if(date&&time&&!zone&&(uncertainSpeech(text)||hasArrivalWindow(text)))return 'ask_timezone_uncertain';
+ if(date&&time&&!zone&&/\btexas\b/i.test(text))return 'ask_texas_timezone';
  const missing=[!date?'date':'',!time?'time':'',!zone?'timezone':''].filter(Boolean).join('_');
  const prompts:Record<string,VoicePrompt>={date:'ask_date',time:'ask_time',timezone:'ask_timezone',date_time:'ask_date_time',date_timezone:'ask_date_timezone',time_timezone:'ask_time_timezone'};
  return prompts[missing]||'clarification';

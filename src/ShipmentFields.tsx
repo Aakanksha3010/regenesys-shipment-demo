@@ -36,7 +36,7 @@ export function ShipmentFields({shipment,contacts,scenarios,busy}:{shipment?:Shi
    {input('Shipment reference','reference','text',60)}
    <label>Carrier contact<select required name="contactId" value={fields.contactId} disabled={busy} onChange={e=>change('contactId',e.target.value)}><option value="">Choose a carrier</option>{contacts.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
    {input('Origin','origin')}{input('Destination','destination')}{input('Window start','windowStart','datetime-local')}{input('Window end','windowEnd','datetime-local')}
-   <label>Window timezone<select required name="windowTz" value={fields.windowTz} disabled={busy} onChange={e=>change('windowTz',e.target.value)}><option value="">Choose a timezone</option><option>America/Chicago</option><option>America/New_York</option><option>Asia/Kolkata</option></select></label>
+   <label>Window timezone<select required name="windowTz" value={fields.windowTz} disabled={busy} onChange={e=>change('windowTz',e.target.value)}><option value="">Choose a timezone</option><option>America/Chicago</option><option>America/New_York</option><option>America/Denver</option><option>Asia/Kolkata</option></select></label>
    <label>Practice scenario<select name="scenarioId" value={fields.scenarioId} disabled={busy} onChange={e=>change('scenarioId',e.target.value)}>{scenarios.map(sc=><option key={sc.id} value={sc.id}>{sc.label}</option>)}</select></label>
   </div>
   <label>Additional description / shipment note (optional)<textarea aria-label="Additional description / shipment note (optional)" name="note" value={fields.note} disabled={busy} maxLength={1000} onChange={e=>change('note',e.target.value)}/></label>

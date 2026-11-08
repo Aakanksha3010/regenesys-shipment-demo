@@ -47,3 +47,12 @@ Before starting a conversation, separately consent to recording. The microphone 
 Each reviewer should create their own account, confirm their email if required, and receive access from the owner. They share the same Regenesys workspace using their own credentials. The localhost app is not remotely hosted; a public app URL and Auth redirect settings are required before a remote reviewer can use it on another machine. Actual reviewer signup, access assignment and hosted save/refresh must be checked before claiming that handoff complete.
 
 Voice capture tolerates short pauses; use **Finish speaking** to end your turn deliberately. "Same time zone as yours" triggers one request for an explicit arrival timezone. Today/tomorrow follow the displayed demo clock, not the computer clock. Conflicting relative and calendar dates remain unconfirmed.
+
+
+## Recover a missed voice reply
+
+If listening times out, use **Retry microphone** to answer the same question, or check the editable **Your reply** draft and select **Continue with this reply**. Earlier arrival details stay in place. **End without a reply** leaves missing details unconfirmed; review/save is still explicit. You can also start with **Type a practice reply** without enabling the microphone.
+
+If the caller says Texas time, explicitly choose Central or Mountain. On handoff, the context panel retains the earlier date/time and explains missing timezone or conflicting dates. The practice coordinator uses that context in its next question. It remains scripted and simulated.
+
+Hosted persistence was verified with the fictional QA-PERSIST-1108 typed practice record on 8 November. Find its open issue in Escalations and its reviewed conversation plus handoff messages in Activity → Voice demo reviewed → View recorded details. Real microphone recording and second-account access remain separate acceptance checks.

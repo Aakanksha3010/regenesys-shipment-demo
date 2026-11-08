@@ -1,24 +1,26 @@
 import {useState} from 'react';
 import {Dictation} from './Dictation';
 import type {Shipment,Result} from './domain';
-import {coordinatorReply} from './coordinator-script';
+import {coordinatorReply,coordinatorContext} from './coordinator-script';
 import {voicePrompts,type VoicePrompt} from './voice-prompts';
 
 export type HandoffMessage={role:'coordinator'|'caller';text:string;source?:'scripted'};
 export type HandoffSession={status:'waiting'|'joined'|'ended';messages:HandoffMessage[];interaction?:'automatic'|'manual'};
-export function CoordinatorHandoff({shipment,result,transcript,session,onChange,onBack,onSpeak,onStop,speaking=false,audioError='',recordingActive=false}:{shipment:Shipment;result:Result;transcript:string;session:HandoffSession;onChange:(s:HandoffSession)=>void;onBack:()=>void;onSpeak:(prompt:VoicePrompt)=>void;onStop:()=>void;speaking?:boolean;audioError?:string;recordingActive?:boolean}){
+export function CoordinatorHandoff({shipment,clock,result,transcript,session,onChange,onBack,onSpeak,onStop,speaking=false,audioError='',recordingActive=false}:{shipment:Shipment;clock:string;result:Result;transcript:string;session:HandoffSession;onChange:(s:HandoffSession)=>void;onBack:()=>void;onSpeak:(prompt:VoicePrompt)=>void;onStop:()=>void;speaking?:boolean;audioError?:string;recordingActive?:boolean}){
  const [reply,setReply]=useState('');
+ const context=coordinatorContext(transcript,session.messages.filter(m=>m.role==='caller').map(m=>m.text),shipment,clock);
  const automatic=(session.interaction||(session.status==='waiting'?'automatic':'manual'))==='automatic';
  function start(){
   if(!automatic){onChange({...session,status:'joined',interaction:'manual'});return;}
-  onChange({...session,status:'joined',interaction:'automatic',messages:[{role:'coordinator',text:voicePrompts.coordinator_intro,source:'scripted'}]});
-  onSpeak('coordinator_intro');
+  onChange({...session,status:'joined',interaction:'automatic',messages:[{role:'coordinator',text:voicePrompts[context.prompt],source:'scripted'}]});
+  onSpeak(context.prompt);
  }
  function send(value:string){
   const text=value.trim().slice(0,2000);
   if(!text||session.status!=='joined'||speaking||session.messages.length>(automatic?17:19))return;
   if(automatic){
-   const next=coordinatorReply(text,session.messages.filter(m=>m.role==='caller').map(m=>m.text));
+   const previous=session.messages.filter(m=>m.role==='caller').map(m=>m.text);
+   const next=coordinatorReply(text,previous,coordinatorContext(transcript,[...previous,text],shipment,clock));
    onChange({...session,status:next.ended?'ended':'joined',messages:[...session.messages,{role:'caller',text},{role:'coordinator',text:voicePrompts[next.prompt],source:'scripted'}]});
    onSpeak(next.prompt);
   }else onChange({...session,messages:[...session.messages,{role:'coordinator',text}]});
@@ -33,7 +35,7 @@ export function CoordinatorHandoff({shipment,result,transcript,session,onChange,
   <div className="section-line"><h3>Coordinator desk</h3><span className="sim-label">SIMULATED</span></div>
   <p>{automatic?'You stay in the caller role. A scripted practice coordinator responds aloud and in writing; no real person joins.':'You play the coordinator on this screen. Switch back to the caller screen to play that role.'} No phone call or external message is sent.</p>
   {session.status==='waiting'&&<label>Practice mode<select aria-label="Practice mode" value={automatic?'automatic':'manual'} onChange={e=>onChange({...session,interaction:e.target.value as 'automatic'|'manual'})}><option value="automatic">Automatic scripted coordinator</option><option value="manual">Manual · play both roles</option></select></label>}
-  <div className="handoff-context"><strong>{shipment.reference} · {shipment.origin} → {shipment.destination}</strong><p>{result.delay?'Carrier reported a delay.':result.frustrated?'Caller is frustrated and needs help.':'Caller needs a coordinator.'}</p><p>{result.instant?'Reported ETA: '+result.date+' '+result.time+' '+result.tz:'Arrival time is unconfirmed. The human team must review it.'}</p><p>Delivery window: {new Date(shipment.windowStart).toLocaleString('en-US',{timeZone:shipment.windowTz})} – {new Date(shipment.windowEnd).toLocaleString('en-US',{timeZone:shipment.windowTz})} · {shipment.windowTz}</p><details><summary>Conversation so far</summary><pre>{transcript}</pre></details></div>
+  <div className="handoff-context"><strong>{shipment.reference} · {shipment.origin} → {shipment.destination}</strong><p>{result.delay?'Carrier reported a delay.':result.frustrated?'Caller is frustrated and needs help.':'Caller needs a coordinator.'}</p><p>{result.instant?'Reported ETA: '+result.date+' '+result.time+' '+result.tz:'Arrival time is unconfirmed. The human team must review it.'}</p><p>Delivery window: {new Date(shipment.windowStart).toLocaleString('en-US',{timeZone:shipment.windowTz})} – {new Date(shipment.windowEnd).toLocaleString('en-US',{timeZone:shipment.windowTz})} · {shipment.windowTz}</p><dl aria-label="Handoff context"><dt>Heard date mentions</dt><dd>{context.dates.join(' / ')||'Not captured'}</dd><dt>Heard arrival time</dt><dd>{context.time||'Not captured'}</dd><dt>Arrival timezone</dt><dd>{context.zone|| (context.texas?'Caller said Texas time; Central or Mountain is not confirmed.':'Not confirmed')}</dd><dt>What still needs attention</dt><dd>{context.needsZone?'Confirm the arrival timezone; keep the date and time already supplied.':context.conflictingDate?'The relative day and calendar date conflict with the practice clock. Confirm the calendar date and year.':result.reasons.map(r=>r.replaceAll('_',' ')).join(', ')||'Human team to review the reported details.'}</dd><dt>Practice clock date</dt><dd>{new Date(clock).toLocaleDateString('en-US',{timeZone:shipment.windowTz})}</dd></dl><details><summary>Conversation so far</summary><pre>{transcript}</pre></details></div>
   <p role="status">{speaking?'Practice coordinator speaking · wait to reply':session.status==='waiting'?'Ready to start the practice conversation.':session.status==='joined'?(automatic?'Your turn · speak or type a caller response below.':'Coordinator role active in this simulation.'):'Practice conversation ended. Return to the caller screen to review and save.'}</p>
   {speaking&&<button onClick={onStop}>Stop coordinator audio</button>}
   {audioError&&<p className="error" role="alert">{audioError} The written reply is available below.</p>}

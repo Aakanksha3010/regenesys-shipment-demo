@@ -252,3 +252,33 @@ test('sending a typed caller reply cancels an unfinished microphone turn before 
  await page.evaluate(()=>{(window as any).__micAborted=false;class Recognition{onend:any;start(){}stop(){this.onend?.();}abort(){(window as any).__micAborted=true;}}Object.defineProperty(window,'SpeechRecognition',{value:Recognition,configurable:true});});
  await panel.getByRole('checkbox').check();await panel.getByRole('button',{name:'Speak caller response'}).click();await expect(panel.getByText('Listening…',{exact:true})).toBeVisible();await panel.getByLabel('Your response as caller').fill('Traffic is slow');await panel.getByRole('button',{name:'Send caller response'}).click();await expect(panel.getByText('Listening…',{exact:true})).toHaveCount(0);expect(await page.evaluate(()=>(window as any).__micAborted)).toBe(true);await expect(panel.locator('.handoff-messages li').filter({hasText:'Caller · simulated'})).toHaveCount(1);
 });
+
+for(const mode of ['retry','interim','final-without-end'] as const)test('timezone capture recovery: '+mode,async({page,request})=>{
+ await mockSpeech(page,[]);await page.addInitScript(mode=>{
+  let turn=0;
+  class Recognition{
+   onresult:any;onend:any;onerror:any;
+   start(){const n=turn++;if(n===1){if(mode!=='retry')this.onresult?.({results:[{isFinal:mode==='final-without-end',0:{transcript:'Central time'}}]});return;}
+    this.onresult?.({results:[{isFinal:true,0:{transcript:n===0?'Tomorrow at 6 PM':n===2?'Central time':'No thanks'}}]});this.onend?.();}
+   stop(){}abort(){}
+  }
+  Object.defineProperty(window,'SpeechRecognition',{value:Recognition,configurable:true});
+ },mode);
+ const panel=await open(page,false);await page.clock.install();await panel.getByLabel('Agent audio').selectOption('browser');await panel.getByRole('checkbox').first().check();await panel.getByRole('button',{name:'Start conversation'}).click();await expect(panel.getByText('Got the date and time. Which time zone is that?',{exact:true})).toBeVisible();await expect(panel.getByText('Listening to your answer…',{exact:true})).toBeVisible();await page.clock.fastForward(26000);
+ if(mode!=='final-without-end'){
+  const recovery=panel.getByRole('region',{name:'Continue your reply'});await expect(recovery).toContainText(/tomorrow/i);await expect(recovery).toContainText('6 PM');await expect(panel.getByRole('checkbox').last()).toBeDisabled();await expect(panel.getByText('Ready to forward to our human agent team',{exact:true})).toHaveCount(0);expect((await (await request.get('/api/state')).json()).state.attempts).toHaveLength(0);
+  if(mode==='retry')await recovery.getByRole('button',{name:'Retry microphone'}).click();else {await expect(recovery.getByLabel('Your reply',{exact:true})).toHaveValue('Central time');await recovery.getByRole('button',{name:'Continue with this reply'}).click();}
+ }
+ await expect(panel.getByText('The reported estimate falls after the delivery window.',{exact:true})).toBeVisible();await panel.getByText('Conversation details (optional)',{exact:true}).click();await expect(panel.getByLabel('Carrier answer')).toHaveValue('Tomorrow at 6 PM');await expect(panel.getByLabel('Clarification answer')).toHaveValue('Central time');
+});
+
+test('Texas handoff keeps shipment, date, time and unresolved timezone context',async({page})=>{
+ await mockSpeech(page,['we would be arriving tomorrow, that is ninth of November at six p.m. and the time zone is Texas','Texas time','Not sure','Yes']);
+ const panel=await open(page,false);await panel.getByLabel('Agent audio').selectOption('browser');await panel.getByRole('checkbox').first().check();await panel.getByRole('button',{name:'Start conversation'}).click();await expect(panel.getByText('Waiting for coordinator · simulated',{exact:true})).toBeVisible();await panel.getByRole('button',{name:'Open coordinator desk'}).click();
+ await expect(panel.getByText('Caller said Texas time; Central or Mountain is not confirmed.',{exact:true})).toBeVisible();await expect(panel.getByText('tomorrow / November 9',{exact:true})).toBeVisible();await expect(panel.getByText('6 p.m',{exact:true})).toBeVisible();await expect(panel.getByText('RG-1041',{exact:false}).first()).toBeVisible();
+ await panel.getByRole('button',{name:'Start practice coordinator'}).click();await expect(panel.locator('.handoff-messages li').last()).toContainText('you said Texas time');await expect(panel.getByText('Your turn · speak or type a caller response below.',{exact:true})).toBeVisible();await panel.getByLabel('Your response as caller').fill('Central time');await panel.getByRole('button',{name:'Send caller response'}).click();await expect(panel.locator('.handoff-messages li').last()).toContainText('relative day and calendar date');await expect(panel.getByText('Central time',{exact:true}).first()).toBeVisible();
+});
+
+test('typed practice conversation can complete and persist a reviewed handoff without microphone consent',async({page,request})=>{
+ await mockSpeech(page,[]);const panel=await open(page,false);await panel.getByLabel('Agent audio').selectOption('browser');await panel.getByRole('button',{name:'Type a practice reply'}).click();await panel.getByLabel('Your reply',{exact:true}).fill('We will be 30 minutes late');await panel.getByRole('button',{name:'Continue with this reply'}).click();await expect(panel.getByLabel('Your reply',{exact:true})).toBeVisible();await panel.getByLabel('Your reply',{exact:true}).fill('yes');await panel.getByRole('button',{name:'Continue with this reply'}).click();await expect(panel.getByText('Waiting for coordinator · simulated',{exact:true})).toBeVisible();await panel.getByRole('button',{name:'Open coordinator desk'}).click();await panel.getByRole('button',{name:'Start practice coordinator'}).click();await expect(panel.getByText('Your turn · speak or type a caller response below.',{exact:true})).toBeVisible();await panel.getByLabel('Your response as caller').fill('Traffic is slow');await panel.getByRole('button',{name:'Send caller response'}).click();await expect(panel.getByText('Your turn · speak or type a caller response below.',{exact:true})).toBeVisible();await panel.getByRole('button',{name:'End practice conversation'}).click();await panel.getByRole('button',{name:'Back to caller screen'}).click();await panel.getByRole('checkbox').last().check();await panel.getByRole('button',{name:'Save and forward to human team'}).click();await expect(panel).not.toBeVisible();await page.reload();const state=(await (await request.get('/api/state')).json()).state;expect(state.attempts[0].inputMethod).toBe('typed_demo');expect(state.escalations[0].status).toBe('open');expect(state.audit.at(-1).details.handoffSession.messages.some((m:any)=>m.text==='Traffic is slow')).toBe(true);
+});
