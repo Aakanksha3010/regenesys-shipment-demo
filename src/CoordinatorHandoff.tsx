@@ -20,7 +20,7 @@ export function CoordinatorHandoff({shipment,clock,result,transcript,session,onC
   if(!text||session.status!=='joined'||speaking||session.messages.length>(automatic?17:19))return;
   if(automatic){
    const previous=session.messages.filter(m=>m.role==='caller').map(m=>m.text);
-   const next=coordinatorReply(text,previous,coordinatorContext(transcript,[...previous,text],shipment,clock));
+   const next=coordinatorReply(text,previous,coordinatorContext(transcript,[...previous,text],shipment,clock),context);
    onChange({...session,status:next.ended?'ended':'joined',messages:[...session.messages,{role:'caller',text},{role:'coordinator',text:voicePrompts[next.prompt],source:'scripted'}]});
    onSpeak(next.prompt);
   }else onChange({...session,messages:[...session.messages,{role:'coordinator',text}]});

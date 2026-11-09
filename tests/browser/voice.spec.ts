@@ -210,6 +210,26 @@ test('automatic coordinator answers spoken caller updates and ends with a review
  await page.reload();expect((await (await request.get('/api/state')).json()).state.audit.at(-1).details.handoffSession).toEqual(handoff);
 });
 
+test('coordinator hears bare Central, clarifies a truncated ending and saves the original replies',async({page,request})=>{
+ await mockSpeech(page,['I need a human coordinator','yes','November 11, 2026 at 3 PM Texas time','central','no there is a',"No, that’s all, thank you."]);
+ const panel=await open(page,false);await panel.getByLabel('Agent audio').selectOption('browser');await panel.getByRole('checkbox').first().check();await panel.getByRole('button',{name:'Start conversation'}).click();
+ await expect(panel.getByText('Waiting for coordinator · simulated',{exact:true})).toBeVisible();await panel.getByRole('button',{name:'Open coordinator desk'}).click();await panel.getByRole('button',{name:'Start practice coordinator'}).click();
+ const ready=()=>expect(panel.getByText('Your turn · speak or type a caller response below.',{exact:true})).toBeVisible();
+ await ready();await panel.getByRole('checkbox').check();await panel.getByRole('button',{name:'Speak caller response',exact:true}).click();await ready();
+ await expect(panel.locator('.handoff-messages li').last()).toContainText('Central Time or Mountain Time');
+ await panel.getByRole('button',{name:'Speak caller response',exact:true}).click();await ready();
+ await expect(panel.locator('.handoff-messages li').last()).toContainText('reported arrival details');
+ await expect(panel.getByLabel('Handoff context')).toContainText('central time');
+ await panel.getByRole('button',{name:'Speak caller response',exact:true}).click();await ready();
+ await expect(panel.locator('.handoff-messages li').last()).toContainText('missed the end of your reply');
+ await panel.getByRole('button',{name:'Speak caller response',exact:true}).click();
+ await expect(panel.getByText('Practice conversation ended. Return to the caller screen to review and save.',{exact:true})).toBeVisible();
+ await panel.getByRole('button',{name:'Back to caller screen'}).click();await panel.getByRole('checkbox').last().check();await panel.getByRole('button',{name:'Save and forward to human team'}).click();await expect(panel).not.toBeVisible();
+ const state=(await (await request.get('/api/state')).json()).state;
+ const handoff=state.audit.at(-1).details.handoffSession;expect(handoff.status).toBe('ended');expect(handoff.messages.filter((m:any)=>m.role==='caller').map((m:any)=>m.text)).toEqual(['November 11, 2026 at 3 PM Texas time','central','no there is a',"No, that’s all, thank you."]);
+ expect(state.escalations[0].status).toBe('open');expect(state.reports[0].instant).toBeNull();
+});
+
 test('leaving a scripted coordinator stops audio and retains the unsaved draft',async({page,request})=>{
  await mockSpeech(page,['Truck broke down','yes']);const panel=await open(page,false);await panel.getByLabel('Agent audio').selectOption('browser');await panel.getByRole('checkbox').first().check();await panel.getByRole('button',{name:'Start conversation'}).click();await expect(panel.getByText('Waiting for coordinator · simulated',{exact:true})).toBeVisible();await panel.getByRole('button',{name:'Open coordinator desk'}).click();
  await page.evaluate(()=>{(window as any).__cancelled=false;Object.defineProperty(window,'speechSynthesis',{value:{getVoices:()=>[],cancel:()=>{(window as any).__cancelled=true;},speak:()=>{(window as any).__cancelled=false;}},configurable:true});});

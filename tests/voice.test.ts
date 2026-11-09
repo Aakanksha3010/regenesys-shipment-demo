@@ -180,6 +180,34 @@ test('Texas does not select a timezone; explicit Central and Mountain answers do
  const correctedZone=coordinatorContext(first+'\nClarification: Texas time\nClarification: Not sure\nHandoff response: Yes',['Central time'],sh,seed().clock);assert.equal(correctedZone.conflictingDate,true);assert.equal(coordinatorReply('Central time',[],correctedZone).prompt,'coordinator_date');
 });
 
+test('coordinator accepts short timezone answers in context and keeps earlier arrival details',async()=>{
+ const {coordinatorContext,coordinatorReply}=await import('../src/coordinator-script.js');
+ const first='November 11, 2026 at 3 PM Texas time';
+ const before=coordinatorContext(first,[],sh,seed().clock);
+ assert.equal(before.needsZone,true);
+ for(const answer of ['central','Central.','It’s Central','mountain','yes, eastern']){
+  const after=coordinatorContext(first,[answer],sh,seed().clock);
+  assert.equal(after.needsZone,false,answer);assert.equal(after.time,before.time);assert.deepEqual(after.dates,before.dates);assert.equal(after.complete,true);
+  assert.equal(coordinatorReply(answer,[],after,before).prompt,'coordinator_details');
+  const later=coordinatorContext(first,[answer,'The gate code is 1234'],sh,seed().clock);
+  assert.equal(coordinatorReply('The gate code is 1234',[answer],later,after).prompt,'coordinator_note');
+ }
+ for(const answer of ['central warehouse','maybe Central','Central or Mountain'])assert.equal(coordinatorContext(first,[answer],sh,seed().clock).complete,false,answer);
+ assert.equal(coordinatorContext('I need a coordinator',['central'],sh,seed().clock).zone,undefined);
+ const conflict=coordinatorContext('tomorrow November 9 at 6 PM Texas time',['central'],sh,seed().clock);
+ assert.equal(conflict.needsZone,false);assert.equal(conflict.conflictingDate,true);
+});
+
+test('coordinator understands natural endings but clarifies incomplete recognition',async()=>{
+ const {coordinatorContext,coordinatorReply}=await import('../src/coordinator-script.js');
+ const context=coordinatorContext('November 11, 2026 at 3 PM Central time',[],sh,seed().clock);
+ for(const ending of ["No, that’s all, thank you.",'No nothing else','no there is nothing else',"there isn't anything else",'nope','I am done','that is it for now'])assert.equal(coordinatorReply(ending,[],context,context).ended,true,ending);
+ const fragment=coordinatorReply('no there is a',[],context,context);
+ assert.equal(fragment.ended,false);assert.equal(fragment.prompt,'coordinator_check_finished');
+ assert.equal(coordinatorReply('no there is a delay',[],context,context).prompt,'coordinator_delay');
+ assert.equal(coordinatorReply("No, that's all except we are late",[],context,context).ended,false);
+});
+
 test('six seven PM stays unclear after repeated Central Time and accepts only an explicit time correction',()=>{
  const first='we would be expected to arrive tomorrow, that is ninth of November at six seven p.m. and the time zone is Texas';
  assert.equal(spokenEtaDetails(first).time,undefined);assert.equal(voiceClarification(first),'ask_texas_timezone');

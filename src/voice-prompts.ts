@@ -29,6 +29,7 @@ export const voicePrompts = {
   coordinator_delay: "I'm sorry you're delayed. Thanks for letting me know about the delay. I'll include that update in the handoff draft for our human agent team. What caused the delay, if you know?",
   coordinator_note: "Thanks, I've added your message to the handoff draft. Is there anything else you'd like the team to know? You can say that's all to finish.",
   coordinator_unclear: "I couldn't understand that update. Could you briefly describe what you need the team to review? You can also say that's all to finish.",
+  coordinator_check_finished: "I may have missed the end of your reply. Is there something else to add, or are you finished? You can say that's all to finish.",
   coordinator_limit: "This scripted practice coordinator can't approve delivery changes or connect you to a real person. Your request is in the draft for our human agent team. Is there anything else to add?",
   coordinator_end: "Thank you. This practice conversation is complete. Your delivery details remain for our human agent team to review.",
   handoff_declined: "Understood. Thanks for the update.",
