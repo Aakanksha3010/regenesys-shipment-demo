@@ -59,3 +59,22 @@ Hosted persistence was verified with the fictional QA-PERSIST-1108 typed practic
 
 
 A phrase such as “six seven PM” is not treated as an exact time. After a timezone reply, Bella retains that zone and can ask one more targeted question for unclear time or a calendar-date conflict. Give one exact time with AM/PM; when the date conflicts with the practice clock, also give the calendar date and year. Repeating “Central Time” does not create a second timezone. Unresolved facts remain unconfirmed and nothing is saved until reviewed.
+
+## Two-minute backup video — planned, after final live test
+
+Deliverable: a short screen recording alongside the verified Vercel link and the existing Purva presentation. This is a recording plan, not a completed video. Record only after Aakanksha's final test passes on the deployed site. Target roughly two minutes; allow up to two and a half minutes to keep Bella's replies and the handoff understandable.
+
+Before recording, sign in off camera and prepare one fictional shipment with an unsuppressed sample contact and a delivery window of 11 November 2026, 1–5 PM, America/Chicago. Use a unique reference such as `DEMO-VIDEO-1109` if available; do not reset shared data. Check the actual window before reading the example below. Keep credentials, account settings, real customer data and unrelated tabs out of the capture. Test screen/system audio plus microphone first. The backup video is separate from optional in-app audio history; leave the latter off unless separately consented.
+
+| Target time | What to show and do | Narration or caller words |
+| --- | --- | --- |
+| 0:00–0:12 | Shipment dashboard; open the fictional shipment and its delivery window. | “Regenesys helps coordinators collect shipment updates and identify exceptions. This demo uses fictional data and simulated calls.” |
+| 0:12–0:45 | Open Talk with Bella, enable microphone use and Start conversation. Let Bella finish. Give date and time but omit the zone; answer the targeted follow-up. | Caller: “November eleventh, twenty twenty-six, at three thirty PM.” Then: “Central Time.” Bella should retain the date/time and ask only for the missing zone. |
+| 0:45–1:00 | Review the proposed ETA, explicitly save, then show the shipment/dashboard after refresh. | “The coordinator reviews the result before saving. The reported ETA and shared history remain after reload.” |
+| 1:00–1:25 | Begin a new update on the same shipment. Report a delay and accept the simulated handoff. | Caller: “We're now running thirty minutes late because of traffic. I don't have a confirmed revised arrival time.” Accept when offered. Narration: “This is a new update. The agent records the exception without inventing a revised ETA.” |
+| 1:25–1:50 | Open coordinator desk; show the retained context and Start practice coordinator. Use Speak caller response, wait for listening, give one short update and hear the reply. End practice. | Keep a visible label: **Simulated coordinator handoff — no real person or phone call**. Caller: “Traffic delayed us. The revised arrival time is still unconfirmed.” Then: “That's all.” Keep at least one actual scripted coordinator reply audible. |
+| 1:50–2:10 | Return to caller screen; review and Save and forward to human team. Show the open exception and saved conversation in Activity. | “Saving adds this update to the demo's shared human-team queue with its context. No real coordinator was contacted. The pilot will validate whether this reduces chasing and improves exception visibility.” |
+
+Timing is a guide, not a measured latency claim. If the interaction runs longer, retain the actual replies and explicit review/save steps. Trim only navigation or idle pauses, label the video as an edited walkthrough, and do not rearrange turns or conceal failed responses. Do not use this clip as evidence of real speech accuracy, response-time performance or measured business savings.
+
+The recording is accepted when voices are audible, the missing-zone clarification retains the supplied time, the saved update survives reload, the handoff is visibly labelled simulated, and the delay/context appear in the shared history. If a step fails, fix and retest before recording the final version. Add the approved recording link to the deck only after the file exists and playback is verified. Aakanksha reviews the clip, deck and proposed recipient/message before anything is sent to Purva.
