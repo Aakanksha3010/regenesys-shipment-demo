@@ -18,7 +18,7 @@ Set these **server-only Production environment variables** from the existing loc
 
 Never prefix server secrets with `VITE_`. Do not enable these secrets for arbitrary fork/preview deployments. Vercel's generated exact deployment origin is also accepted; arbitrary `*.vercel.app` origins are not.
 
-In the dedicated Supabase project's Auth URL settings, set Site URL to the verified production origin and add that exact redirect URL. Preserve the existing local redirect entries. Signup does not grant workspace membership automatically; an owner must approve access.
+In the dedicated Supabase project's Auth URL settings, set Site URL to the verified production origin and add that exact redirect URL. Preserve the existing local redirect entries. Confirmed email signup automatically grants coordinator membership in this shared demo through the `auto_join_confirmed_demo_accounts` migration. Unconfirmed/anonymous accounts remain excluded; existing viewer roles are preserved.
 
 ## Verification before sharing
 
@@ -26,7 +26,7 @@ In the dedicated Supabase project's Auth URL settings, set Site URL to the verif
 2. `/api/config` returns Supabase mode, public configuration and audio availability, without server secrets.
 3. Unsigned `/api/state`, voice and recording access returns 401. An untrusted Origin returns 403.
 4. Sign in normally, verify shipments, make a reviewed fictional update and confirm it survives reload.
-5. Test signup/email confirmation, approved membership, Bella, microphone replies and consented recording playback on the deployed origin. Browser permissions are specific to the new site.
+5. Test signup/email confirmation, automatic confirmed membership, Bella, microphone replies and consented recording playback on the deployed origin. Browser permissions are specific to the new site.
 
 ## Recording and cleanup limitations
 
