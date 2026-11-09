@@ -1,3 +1,4 @@
+import {MAX_AUDIO_BYTES} from '../src/audio-limits.js';
 import {randomUUID} from 'node:crypto';
 import {mkdir,readFile,writeFile,unlink,readdir} from 'node:fs/promises';
 import path from 'node:path';
@@ -16,7 +17,7 @@ export function recordingPermission(state:State,attemptId:string,actor:Actor,con
  return attempt;
 }
 export function validateAudio(bytes:Buffer,mime:string){
- if(!['audio/webm','audio/mp4','audio/ogg'].includes(mime.split(';')[0])||!bytes.length||bytes.length>10_000_000)throw Error('Use a supported recording under 10 MB.');
+ if(!['audio/webm','audio/mp4','audio/ogg'].includes(mime.split(';')[0])||!bytes.length||bytes.length>MAX_AUDIO_BYTES)throw Error('Use a supported recording under 4 MB.');
  const webm=bytes.subarray(0,4).equals(Buffer.from([0x1a,0x45,0xdf,0xa3])),ogg=bytes.subarray(0,4).toString()==='OggS',mp4=bytes.subarray(4,8).toString()==='ftyp';
  if(!(mime.startsWith('audio/webm')&&webm||mime.startsWith('audio/ogg')&&ogg||mime.startsWith('audio/mp4')&&mp4))throw Error('The upload is not a supported audio file.');
 }

@@ -1,0 +1,9 @@
+.env*
+.data
+.venv-evals
+.deepeval
+validation
+test-results
+playwright-report
+node_modules
+.git

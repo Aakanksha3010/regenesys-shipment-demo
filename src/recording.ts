@@ -1,3 +1,4 @@
+import {MAX_AUDIO_BYTES,RECORDING_STOP_BYTES} from './audio-limits';
 // Optional, consented browser recording. Hold music and typed replies are not captured.
 export type RecordingDraft={blob:Blob;coverage:'microphone_and_bella'|'microphone_only'};
 export async function startRecording(includeBella:boolean,onLimit:()=>void){
@@ -13,9 +14,9 @@ export async function startRecording(includeBella:boolean,onLimit:()=>void){
   const done=new Promise<RecordingDraft>((ok,fail)=>{resolve=ok;reject=fail;});void done.catch(()=>{});
   const coverage=includeBella?'microphone_and_bella':'microphone_only';
   const cleanup=()=>{mic.getTracks().forEach(t=>t.stop());void context?.close().catch(()=>{});clearTimeout(timer);};
-  recorder.ondataavailable=e=>{if(!discarded&&e.data.size){chunks.push(e.data);bytes+=e.data.size;if(bytes>8_000_000){onLimit();if(recorder.state!=='inactive')recorder.stop();}}};
+  recorder.ondataavailable=e=>{if(!discarded&&e.data.size){chunks.push(e.data);bytes+=e.data.size;if(bytes>RECORDING_STOP_BYTES){onLimit();if(recorder.state!=='inactive')recorder.stop();}}};
   recorder.onerror=()=>{finished=true;cleanup();reject(Error('Audio recording failed. The conversation can still be saved without audio.'));};
-  recorder.onstop=()=>{finished=true;cleanup();if(discarded){chunks.length=0;resolve({blob:new Blob(),coverage});}else resolve({blob:new Blob(chunks,{type:mime}),coverage});};
+  recorder.onstop=()=>{finished=true;cleanup();if(discarded){chunks.length=0;resolve({blob:new Blob(),coverage});}else if(bytes>MAX_AUDIO_BYTES)reject(Error('This recording is too large to save. Discard the recording to save the conversation without audio.'));else resolve({blob:new Blob(chunks,{type:mime}),coverage});};
   const timer=setTimeout(()=>{onLimit();if(recorder.state!=='inactive')recorder.stop();},300000);
   recorder.start(1000);
   return {addBella(player:HTMLAudioElement){if(includeBella&&!finished){const source=context!.createMediaElementSource(player);source.connect(destination);source.connect(context!.destination);}},

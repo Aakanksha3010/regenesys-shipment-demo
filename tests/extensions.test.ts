@@ -97,7 +97,7 @@ test('recordings require consent, ownership and a reviewed voice conversation',(
 });
 test('audio validates type, signature and limits and metadata has seven-day expiry',()=>{
  validateAudio(Buffer.from([0x1a,0x45,0xdf,0xa3,0]),'audio/webm');assert.throws(()=>validateAudio(Buffer.from('<script>'),'audio/webm'),/not a supported/);
- assert.throws(()=>validateAudio(Buffer.alloc(10_000_001),'audio/webm'),/under 10 MB/);
+ assert.throws(()=>validateAudio(Buffer.alloc(4_000_001),'audio/webm'),/under 4 MB/);
  const record=metadata({id:'a',shipmentId:'s'},'audio/webm','microphone_only',1000);assert.equal(Date.parse(record.expiresAt)-Date.parse(record.createdAt),RETENTION_MS);
 });
 test('recording metadata persists, expired playback is denied and cleanup removes bytes',async()=>{

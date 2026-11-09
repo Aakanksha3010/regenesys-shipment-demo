@@ -13,3 +13,5 @@ validation/*-results.json
 .deepeval/
 __pycache__/
 *.pyc
+
+.vercel/
