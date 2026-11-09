@@ -5,13 +5,12 @@ import {localActor,scenarios,type Actor} from '../src/domain.js';
 import {createVoiceService,VoiceError} from './voice.js';
 import {authorize} from './access.js';
 import {localAudio,hostedAudio,recordingPermission,validateAudio,metadata,audioRecords,findPlayable,purgeAudio,type AudioStorage} from './audio.js';
-import {deploymentOrigins,requestAllowed} from './deployment.js';
+import {deploymentOrigins,requestAllowed,usesSupabase} from './deployment.js';
 import {MAX_AUDIO_BYTES} from '../src/audio-limits.js';
 export async function createApp(){
 const voice=createVoiceService(process.env.ELEVENLABS_API_KEY);
 const port=Number(process.env.PORT||4173);
-const hosted=process.env.DATA_MODE==='supabase';
-if(process.env.VERCEL&&!hosted)throw Error('Vercel deployments require Supabase authentication.');
+const hosted=usesSupabase(process.env);
 if(hosted&&(!process.env.SUPABASE_URL||!process.env.SUPABASE_SECRET_KEY||!process.env.SUPABASE_PUBLISHABLE_KEY))throw Error('Supabase mode requires URL, publishable key and server-only secret key. No silent local fallback.');
 const persistence=hosted?await hostedStore(process.env.SUPABASE_URL!,process.env.SUPABASE_SECRET_KEY!):await (await import('./local-store.js')).localStore(process.env.LOCAL_DATA_PATH||'.data/postgres');
 const store=persistence.store;

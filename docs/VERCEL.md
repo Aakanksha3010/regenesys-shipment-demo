@@ -8,7 +8,7 @@ Use the Vite preset, `npm run build`, output `dist`, and Node.js 24.x. Connect `
 
 Set these **server-only Production environment variables** from the existing local configuration:
 
-- `DATA_MODE=supabase`
+- `DATA_MODE=supabase` (optional on Vercel, which always requires Supabase; explicitly selecting local mode is rejected)
 - `SUPABASE_URL`
 - `SUPABASE_PUBLISHABLE_KEY` (only this public key is returned to the client)
 - `SUPABASE_SECRET_KEY`

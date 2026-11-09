@@ -1,3 +1,10 @@
+export function usesSupabase(env:NodeJS.ProcessEnv):boolean{
+ if(env.VERCEL){
+  if(env.DATA_MODE&&env.DATA_MODE!=='supabase')throw Error('Vercel deployments require Supabase authentication.');
+  return true;
+ }
+ return env.DATA_MODE==='supabase';
+}
 export function deploymentOrigins(env:NodeJS.ProcessEnv,port:number):Set<string>{
  if(!env.VERCEL)return new Set([`http://127.0.0.1:${port}`,`http://localhost:${port}`]);
  const origins=new Set<string>();
