@@ -5,7 +5,7 @@ test('signup explains automatic confirmed membership without accepting client ro
  await page.route('**/api/state',r=>r.fulfill({status:401,json:{error:'Sign in to continue.'}}));
  let signup:any;await page.route('https://auth.example.test/auth/v1/signup*',r=>{signup=r.request().postDataJSON();return r.fulfill({json:{id:'synthetic-reviewer',email:'reviewer@example.test',confirmation_sent_at:new Date().toISOString()}});});
  await page.goto('/');await page.getByRole('button',{name:'Create an account',exact:true}).click();await page.getByLabel('Email',{exact:true}).fill('reviewer@example.test');await page.getByLabel('Password',{exact:true}).fill('Synthetic-test-password-123');await page.getByRole('button',{name:'Create account',exact:true}).click();
- await expect(page.getByText('After confirming your email, sign in to join the shared demo automatically.',{exact:false})).toBeVisible();expect(signup.email).toBe('reviewer@example.test');expect(signup.data?.role).toBeUndefined();await expect(page.getByRole('button',{name:'Add shipment',exact:true})).not.toBeVisible();
+ await expect(page.getByText('After confirming your email, sign in to open your private demo workspace.',{exact:false})).toBeVisible();expect(signup.email).toBe('reviewer@example.test');expect(signup.data?.role).toBeUndefined();await expect(page.getByRole('button',{name:'Add shipment',exact:true})).not.toBeVisible();
 });
 test('signed-in unassigned user stays outside the workspace',async({page})=>{
  await page.route('**/api/config',r=>r.fulfill({json:{mode:'supabase',supabaseUrl:'https://auth.example.test',publishableKey:'test-public-key',scenarios:[],audioHistory:false}}));

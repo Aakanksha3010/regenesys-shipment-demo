@@ -18,7 +18,7 @@ Set these **server-only Production environment variables** from the existing loc
 
 Never prefix server secrets with `VITE_`. Do not enable these secrets for arbitrary fork/preview deployments. Vercel's generated exact deployment origin is also accepted; arbitrary `*.vercel.app` origins are not.
 
-In the dedicated Supabase project's Auth URL settings, set Site URL to the verified production origin and add that exact redirect URL. Preserve the existing local redirect entries. Confirmed email signup automatically grants coordinator membership in this shared demo through the `auto_join_confirmed_demo_accounts` migration. Unconfirmed/anonymous accounts remain excluded; existing viewer roles are preserved.
+In the dedicated Supabase project's Auth URL settings, set Site URL to the verified production origin and add that exact redirect URL. Preserve the existing local redirect entries. Apply `private_account_workspaces` before deploying the private-account server. Confirmed accounts receive private workspaces. The migration preserves legacy shared history only for the original owner and disables the old global RPCs (the old deployment will fail closed until updated). Unconfirmed/anonymous accounts remain excluded; existing viewer roles are preserved.
 
 ## Verification before sharing
 
